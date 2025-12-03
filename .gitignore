@@ -1,0 +1,75 @@
+# 依赖
+node_modules/
+.pnp
+.pnp.js
+
+# 测试
+coverage/
+*.lcov
+.nyc_output
+
+# 生产构建
+dist/
+build/
+*.local
+
+# 环境变量
+.env
+.env.local
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 临时文件
+*.tmp
+*.temp
+temp/
+tmp/
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 前端特定
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
+# 后端特定
+backend/dist/
+backend/.nest/
+backend/logs/
+backend/temp/
+backend/uploadFile/
+
+# 数据库
+*.db
+*.sqlite
+
+# 其他
+.cache/
+.parcel-cache/
+.next/
+out/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vercel
+

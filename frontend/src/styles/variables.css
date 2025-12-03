@@ -1,0 +1,46 @@
+:root {
+  /* 主色调 */
+  --color-primary: #3BAF9F;
+  --color-primary-light: #5BC4B5;
+  --color-primary-lighter: #7DD4C7;
+  --color-primary-lightest: #E6F7F5;
+  --color-primary-dark: #2A8F82;
+  --color-primary-darker: #1F6B60;
+  
+  /* 辅助色调 */
+  --color-secondary: #6B8E9F;
+  --color-secondary-light: #8BA5B3;
+  --color-secondary-lighter: #B0C4D1;
+  --color-secondary-lightest: #E8F0F4;
+  
+  /* 中性色调 */
+  --color-text-primary: #1A1A1A;
+  --color-text-secondary: #666666;
+  --color-text-tertiary: #999999;
+  --color-text-disabled: #CCCCCC;
+  --color-border: #E0E0E0;
+  --color-background: #FFFFFF;
+  --color-background-secondary: #F5F5F5;
+  --color-background-tertiary: #FAFAFA;
+  
+  /* 状态色调 */
+  --color-success: #52C41A;
+  --color-success-light: #B7EB8F;
+  --color-success-lightest: #F6FFED;
+  --color-warning: #FAAD14;
+  --color-warning-light: #FFE58F;
+  --color-warning-lightest: #FFFBE6;
+  --color-error: #FF4D4F;
+  --color-error-light: #FFA39E;
+  --color-error-lightest: #FFF1F0;
+  --color-info: #3BAF9F;
+  --color-info-light: #7DD4C7;
+  --color-info-lightest: #E6F7F5;
+  
+  /* 特殊用途 */
+  --color-link: #3BAF9F;
+  --color-link-hover: #2A8F82;
+  --color-highlight: #FFF9C4;
+  --color-shadow: rgba(0, 0, 0, 0.1);
+}
+

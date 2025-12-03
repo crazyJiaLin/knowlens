@@ -1,0 +1,16 @@
+# Cursor 忽略文件配置
+# 此文件用于控制 Cursor 索引哪些文件
+# 如果 Cursor 读取了 .gitignore 并忽略了 .env* 文件，这里使用否定规则来覆盖
+
+# 只忽略构建产物和依赖
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.cache/
+.parcel-cache/
+
+# 明确不忽略环境变量配置文件（使用否定规则）
+# 这样即使 .gitignore 中有 .env 规则，Cursor 也会索引这些文件
+!.env*
