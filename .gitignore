@@ -13,12 +13,7 @@ dist/
 build/
 *.local
 
-# 环境变量
-.env
-.env.local
-.env.development
-.env.production
-.env.test
+# 环境变量 只上传 .env.example 文件
 .env.*
 !.env.example
 
