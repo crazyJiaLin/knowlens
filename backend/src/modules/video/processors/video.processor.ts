@@ -14,7 +14,6 @@ import {
 import { YoutubeService } from '../services/youtube.service';
 import { BilibiliService } from '../services/bilibili.service';
 import { XfyunService } from '../services/xfyun.service';
-import { MoonshotService } from '../../../shared/services/moonshot.service';
 
 interface VideoJobData {
   documentId: string;
@@ -36,7 +35,6 @@ export class VideoProcessor extends WorkerHost {
     private youtubeService: YoutubeService,
     private bilibiliService: BilibiliService,
     private xfyunService: XfyunService,
-    private llmService: MoonshotService,
   ) {
     super();
   }
@@ -152,44 +150,10 @@ export class VideoProcessor extends WorkerHost {
 
       await job.updateProgress({ progress: 60, message: '字幕获取完成' });
 
-      // 使用大语言模型对字幕进行格式规整（分段、错别字纠正）
-      // 重要：保证原文内容不变，只进行格式优化
-      let formattedTranscript = transcript;
-      if (this.llmService.isAvailable() && transcript.length > 0) {
-        try {
-          await job.updateProgress({
-            progress: 65,
-            message: '正在规整字幕格式...',
-          });
-          this.logger.log('开始使用大语言模型规整字幕格式');
-          formattedTranscript =
-            await this.llmService.formatTranscript(transcript);
-          await job.updateProgress({
-            progress: 70,
-            message: '字幕格式规整完成',
-          });
-        } catch (error) {
-          this.logger.warn(
-            `字幕格式规整失败，使用原始字幕: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          // 格式规整失败不影响后续流程，使用原始字幕
-          await job.updateProgress({
-            progress: 70,
-            message: '字幕格式规整完成',
-          });
-        }
-      } else {
-        this.logger.log('Moonshot 服务未配置，跳过字幕格式规整');
-        await job.updateProgress({
-          progress: 70,
-          message: '字幕格式规整完成',
-        });
-      }
-
       // 保存 segments
-      await job.updateProgress({ progress: 75, message: '正在保存数据...' });
-      if (formattedTranscript.length > 0) {
-        const segments = formattedTranscript.map((item, index) => ({
+      await job.updateProgress({ progress: 70, message: '正在保存数据...' });
+      if (transcript.length > 0) {
+        const segments = transcript.map((item, index) => ({
           documentId,
           segmentIndex: index,
           text: item.text,
@@ -204,10 +168,7 @@ export class VideoProcessor extends WorkerHost {
       await job.updateProgress({ progress: 80, message: '数据保存完成' });
 
       // 计算总字数
-      const wordCount = formattedTranscript.reduce(
-        (sum, t) => sum + t.text.length,
-        0,
-      );
+      const wordCount = transcript.reduce((sum, t) => sum + t.text.length, 0);
 
       // 更新文档状态
       await this.documentModel.updateOne(

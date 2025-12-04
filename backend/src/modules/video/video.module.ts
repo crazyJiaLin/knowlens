@@ -18,12 +18,12 @@ import {
   BilibiliCookieSchema,
 } from './schemas/bilibili-cookie.schema';
 import { DocumentModule } from '../document/document.module';
-import { SharedModule } from '../../shared/shared.module';
+import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
     DocumentModule,
-    SharedModule,
+    CommonModule,
     ConfigModule,
     MongooseModule.forFeature([
       { name: Document.name, schema: DocumentSchema },

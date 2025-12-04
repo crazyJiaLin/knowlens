@@ -7,4 +7,4 @@ import { MoonshotService } from './services/moonshot.service';
   providers: [MoonshotService],
   exports: [MoonshotService],
 })
-export class SharedModule {}
+export class CommonModule {}

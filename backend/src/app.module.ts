@@ -12,7 +12,7 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { InsightModule } from './modules/insight/insight.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { VideoModule } from './modules/video/video.module';
-import { SharedModule } from './shared/shared.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -50,7 +50,7 @@ import { SharedModule } from './shared/shared.module';
     InsightModule,
     AuthModule,
     VideoModule,
-    SharedModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [AppService],
