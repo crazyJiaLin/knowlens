@@ -11,9 +11,14 @@ import {
   Segment,
   SegmentDocument,
 } from '../../document/schemas/segment.schema';
+import {
+  KnowledgePoint,
+  KnowledgePointDocument,
+} from '../../knowledge/schemas/knowledge-point.schema';
 import { YoutubeService } from '../services/youtube.service';
 import { BilibiliService } from '../services/bilibili.service';
 import { XfyunService } from '../services/xfyun.service';
+import { MoonshotService } from '../../../common/services/moonshot.service';
 
 interface VideoJobData {
   documentId: string;
@@ -32,9 +37,12 @@ export class VideoProcessor extends WorkerHost {
     private documentModel: Model<DocumentDocument>,
     @InjectModel(Segment.name)
     private segmentModel: Model<SegmentDocument>,
+    @InjectModel(KnowledgePoint.name)
+    private knowledgePointModel: Model<KnowledgePointDocument>,
     private youtubeService: YoutubeService,
     private bilibiliService: BilibiliService,
     private xfyunService: XfyunService,
+    private moonshotService: MoonshotService,
   ) {
     super();
   }
@@ -151,9 +159,13 @@ export class VideoProcessor extends WorkerHost {
       await job.updateProgress({ progress: 60, message: '字幕获取完成' });
 
       // 保存 segments
-      await job.updateProgress({ progress: 70, message: '正在保存数据...' });
+      await job.updateProgress({
+        progress: 65,
+        message: '正在保存片段数据...',
+      });
+      let savedSegments: SegmentDocument[] = [];
       if (transcript.length > 0) {
-        const segments = transcript.map((item, index) => ({
+        const segmentsData = transcript.map((item, index) => ({
           documentId,
           segmentIndex: index,
           text: item.text,
@@ -161,16 +173,135 @@ export class VideoProcessor extends WorkerHost {
           endTime: item.end,
         }));
 
-        await this.segmentModel.insertMany(segments);
-        this.logger.log(`保存了 ${segments.length} 个片段到数据库`);
+        savedSegments = await this.segmentModel.insertMany(segmentsData);
+        this.logger.log(`保存了 ${savedSegments.length} 个片段到数据库`);
       }
 
-      await job.updateProgress({ progress: 80, message: '数据保存完成' });
+      await job.updateProgress({ progress: 70, message: '片段数据保存完成' });
 
       // 计算总字数
       const wordCount = transcript.reduce((sum, t) => sum + t.text.length, 0);
 
+      // 知识点提炼（如果Moonshot服务可用且有片段数据）
+      if (this.moonshotService.isAvailable() && savedSegments.length > 0) {
+        try {
+          await job.updateProgress({
+            progress: 72,
+            message: '正在构建内容文本...',
+          });
+
+          // 构建完整内容文本
+          const contentText = savedSegments.map((seg) => seg.text).join('\n');
+
+          // 构建分段信息（用于定位）
+          const segmentsForLLM = savedSegments.map((seg) => ({
+            text: seg.text,
+            start: seg.startTime,
+            end: seg.endTime,
+            segmentId: seg._id.toString(),
+          }));
+
+          await job.updateProgress({
+            progress: 75,
+            message: '正在调用AI提炼知识点...',
+          });
+
+          // 调用Moonshot API提炼知识点
+          this.logger.log('开始调用Moonshot API提炼知识点');
+          const knowledgePoints =
+            await this.moonshotService.extractKnowledgePoints(
+              contentText,
+              segmentsForLLM,
+              {
+                maxPoints: 8,
+              },
+            );
+
+          this.logger.log(`AI提炼完成，共 ${knowledgePoints.length} 个知识点`);
+
+          await job.updateProgress({
+            progress: 90,
+            message: '正在保存知识点...',
+          });
+
+          // 获取文档信息（用于构建sourceAnchor）
+          const document = await this.documentModel.findById(documentId);
+          if (!document) {
+            throw new Error(`文档不存在: ${documentId}`);
+          }
+
+          // 保存知识点到数据库
+          const knowledgePointDocs = knowledgePoints.map((kp) => {
+            // 查找对应的segment
+            const segment = savedSegments.find(
+              (seg) => seg._id.toString() === kp.segmentId,
+            );
+
+            // 构建sourceAnchor
+            const sourceAnchor: {
+              type: string;
+              startTime?: number;
+              endTime?: number;
+              page?: number;
+              startOffset?: number;
+              endOffset?: number;
+              segmentId?: any;
+            } = {
+              type: document.sourceType,
+            };
+
+            if (document.sourceType === 'video') {
+              sourceAnchor.startTime = segment?.startTime;
+              sourceAnchor.endTime = segment?.endTime;
+            } else if (document.sourceType === 'pdf') {
+              sourceAnchor.page = segment?.pageNumber;
+              sourceAnchor.startOffset = segment?.startOffset;
+              sourceAnchor.endOffset = segment?.endOffset;
+            } else if (document.sourceType === 'text') {
+              sourceAnchor.startOffset = segment?.charStart;
+              sourceAnchor.endOffset = segment?.charEnd;
+            }
+
+            if (segment) {
+              sourceAnchor.segmentId = segment._id;
+            }
+
+            return {
+              documentId,
+              topic: kp.topic,
+              excerpt: kp.excerpt,
+              confidenceScore: kp.confidenceScore,
+              displayOrder: kp.displayOrder,
+              sourceAnchor,
+            };
+          });
+
+          await this.knowledgePointModel.insertMany(knowledgePointDocs);
+          this.logger.log(
+            `保存了 ${knowledgePointDocs.length} 个知识点到数据库`,
+          );
+
+          await job.updateProgress({
+            progress: 95,
+            message: '知识点保存完成',
+          });
+        } catch (error) {
+          // 知识点提炼失败不影响视频处理结果，只记录警告
+          this.logger.warn(
+            `知识点提炼失败: ${error instanceof Error ? error.message : String(error)}，继续完成视频处理`,
+          );
+        }
+      } else {
+        if (!this.moonshotService.isAvailable()) {
+          this.logger.log('Moonshot 服务未配置，跳过知识点提炼');
+        }
+      }
+
       // 更新文档状态
+      await job.updateProgress({
+        progress: 98,
+        message: '正在更新文档状态...',
+      });
       await this.documentModel.updateOne(
         { _id: documentId },
         {

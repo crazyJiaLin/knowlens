@@ -148,9 +148,8 @@ export class XfyunService {
         },
       });
 
-      this.logger.log(
-        '科大讯飞上传音频文件响应',
-        JSON.stringify(response.data),
+      this.logger.debug(
+        '科大讯飞上传音频文件响应: ' + JSON.stringify(response.data),
       );
 
       const data = response.data as {

@@ -14,6 +14,10 @@ import { VideoProcessor } from './processors/video.processor';
 import { Document, DocumentSchema } from '../document/schemas/document.schema';
 import { Segment, SegmentSchema } from '../document/schemas/segment.schema';
 import {
+  KnowledgePoint,
+  KnowledgePointSchema,
+} from '../knowledge/schemas/knowledge-point.schema';
+import {
   BilibiliCookie,
   BilibiliCookieSchema,
 } from './schemas/bilibili-cookie.schema';
@@ -28,6 +32,7 @@ import { CommonModule } from '../../common/common.module';
     MongooseModule.forFeature([
       { name: Document.name, schema: DocumentSchema },
       { name: Segment.name, schema: SegmentSchema },
+      { name: KnowledgePoint.name, schema: KnowledgePointSchema },
       { name: BilibiliCookie.name, schema: BilibiliCookieSchema },
     ]),
     BullModule.registerQueue({

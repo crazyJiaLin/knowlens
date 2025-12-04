@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Spin, message, Card, Typography, Empty, Progress, Skeleton } from 'antd';
 import { useDocument } from '@/hooks/useDocument';
+import KnowledgeCard from './components/KnowledgeCard';
 import styles from './VideoDocument.module.css';
 
 const { Title, Text } = Typography;
@@ -289,18 +290,10 @@ export default function VideoDocument() {
 
         {/* 右侧：知识点 */}
         <div>
-          <Card title="知识点" className={styles.knowledgeCard}>
-            {status?.status === 'completed' ? (
-              <Empty description="知识点生成中..." />
-            ) : (
-              <div>
-                <Skeleton active paragraph={{ rows: 6 }} />
-                <div className={styles.knowledgeLoadingContainer}>
-                  <Text type="secondary">等待原文处理完成...</Text>
-                </div>
-              </div>
-            )}
-          </Card>
+          <KnowledgeCard
+            documentId={id || ''}
+            documentStatus={status?.status || document?.status}
+          />
         </div>
       </div>
     </div>
