@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Spin, message, Card, Typography, Empty, Progress, Skeleton } from 'antd';
 import { useDocument } from '@/hooks/useDocument';
+import { getKnowledgePoints, type KnowledgePoint } from '@/api/knowledge';
 import KnowledgeCard from './components/KnowledgeCard';
 import styles from './VideoDocument.module.css';
 
@@ -12,7 +13,11 @@ export default function VideoDocument() {
   const segmentsContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | null>(null);
+  const [highlightedKnowledgePointId, setHighlightedKnowledgePointId] = useState<string | null>(
+    null
+  );
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
 
   const { document, segments, status, progress, isLoading, isLoadingSegments, error } = useDocument(
     id || null,
@@ -29,6 +34,19 @@ export default function VideoDocument() {
       message.error(error.message || '加载文档失败');
     }
   }, [error]);
+
+  // 加载知识点列表（用于双向跳转）
+  useEffect(() => {
+    if (status?.status === 'completed' && id) {
+      getKnowledgePoints(id)
+        .then((points) => {
+          setKnowledgePoints(points);
+        })
+        .catch((err) => {
+          console.error('加载知识点失败:', err);
+        });
+    }
+  }, [status?.status, id]);
 
   // 生成初始 embedUrl（当 document 加载时）
   useEffect(() => {
@@ -134,12 +152,12 @@ export default function VideoDocument() {
         // 提前 2 秒开始播放，给用户一些上下文
         const seekTime = Math.max(0, seconds - 2);
         const { videoId } = document.video;
-        
+
         if (!videoId) {
           console.error('videoId 不存在，无法跳转');
           return;
         }
-        
+
         const bvid = videoId.startsWith('BV') ? videoId : null;
 
         if (bvid) {
@@ -161,12 +179,13 @@ export default function VideoDocument() {
    * @param segment 段落数据
    */
   const handleSegmentClick = (segment: {
+    id: string;
     segmentIndex: number;
     startTime?: number;
     endTime?: number;
   }) => {
     console.log('handleSegmentClick', segment);
-    const { startTime, endTime, segmentIndex } = segment;
+    const { startTime, endTime, segmentIndex, id: segmentId } = segment;
     if (startTime === undefined) {
       return;
     }
@@ -175,10 +194,41 @@ export default function VideoDocument() {
     jumpToTime(startTime);
 
     // 高亮当前段落
+    highlightSegment(segmentIndex, startTime, endTime);
+
+    // 高亮对应的知识点（如果有）
+    const relatedKnowledgePoint = knowledgePoints.find(
+      (kp) => kp.sourceAnchor.segmentId === segmentId
+    );
+    if (relatedKnowledgePoint) {
+      setHighlightedKnowledgePointId(relatedKnowledgePoint.id);
+      // 3秒后移除高亮
+      setTimeout(() => {
+        setHighlightedKnowledgePointId(null);
+      }, 3000);
+    }
+  };
+
+  /**
+   * 高亮指定segment并滚动到该位置
+   * @param segmentIndex segment索引
+   * @param startTime 开始时间（可选，用于计算高亮持续时间）
+   * @param endTime 结束时间（可选，用于计算高亮持续时间）
+   */
+  const highlightSegment = (segmentIndex: number, startTime?: number, endTime?: number) => {
     const segmentId = `segment-${segmentIndex}`;
     setHighlightedSegmentId(segmentId);
 
-    // 段落持续时间后移除高亮
+    // 滚动到指定segment
+    const segmentElement = window.document.getElementById(segmentId);
+    if (segmentElement && segmentsContainerRef.current) {
+      segmentElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+
+    // 段落持续时间后移除高亮（默认3秒）
     const duration = Math.max((endTime || 0) - (startTime || 0), 3) * 1000;
     setTimeout(() => {
       setHighlightedSegmentId(null);
@@ -293,6 +343,16 @@ export default function VideoDocument() {
           <KnowledgeCard
             documentId={id || ''}
             documentStatus={status?.status || document?.status}
+            segments={segments}
+            onJumpToTime={jumpToTime}
+            onHighlightSegment={(segmentIndex) => {
+              console.log('onHighlightSegment', segmentIndex);
+              const segment = segments.find((seg) => seg.segmentIndex === segmentIndex);
+              if (segment) {
+                highlightSegment(segmentIndex, segment.startTime, segment.endTime);
+              }
+            }}
+            highlightedKnowledgePointId={highlightedKnowledgePointId}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
-import { Card, Typography, Empty, Spin, Skeleton } from 'antd';
+import { Card, Typography, Empty, Spin, Skeleton, Button } from 'antd';
 import { useEffect, useState } from 'react';
 import { getKnowledgePoints, type KnowledgePoint } from '@/api/knowledge';
+import type { Segment } from '@/api/document';
 import styles from './KnowledgeCard.module.css';
 
 const { Text, Title } = Typography;
@@ -8,11 +9,19 @@ const { Text, Title } = Typography;
 interface KnowledgeCardProps {
   documentId: string;
   documentStatus?: 'processing' | 'completed' | 'failed';
+  segments?: Segment[];
+  onJumpToTime?: (seconds: number) => void;
+  onHighlightSegment?: (segmentIndex: number) => void;
+  highlightedKnowledgePointId?: string | null;
 }
 
 export default function KnowledgeCard({
   documentId,
   documentStatus,
+  segments = [],
+  onJumpToTime,
+  onHighlightSegment,
+  highlightedKnowledgePointId,
 }: KnowledgeCardProps) {
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,34 +93,129 @@ export default function KnowledgeCard({
     );
   }
 
+  /**
+   * 获取知识点的上下文文本（前后1-2个segment）
+   */
+  const getContextText = (point: KnowledgePoint): string => {
+    if (!point.sourceAnchor.segmentId || segments.length === 0) {
+      return point.excerpt;
+    }
+
+    // 查找对应的segment
+    const targetSegment = segments.find((seg) => seg.id === point.sourceAnchor.segmentId);
+
+    if (!targetSegment) {
+      return point.excerpt;
+    }
+
+    const segmentIndex = targetSegment.segmentIndex;
+    const contextSegments: Segment[] = [];
+
+    // 获取前1-2个segment
+    for (let i = Math.max(0, segmentIndex - 2); i < segmentIndex; i++) {
+      if (segments[i]) {
+        contextSegments.push(segments[i]);
+      }
+    }
+
+    // 添加当前segment
+    contextSegments.push(targetSegment);
+
+    // 获取后1-2个segment
+    for (let i = segmentIndex + 1; i <= Math.min(segments.length - 1, segmentIndex + 2); i++) {
+      if (segments[i]) {
+        contextSegments.push(segments[i]);
+      }
+    }
+
+    return contextSegments.map((seg) => seg.text).join(' ');
+  };
+
+  /**
+   * 处理角标点击
+   */
+  const handleBadgeClick = (point: KnowledgePoint) => {
+    console.log('handleBadgeClick', point);
+    const { sourceAnchor } = point;
+
+    // 跳转到视频时间
+    if (sourceAnchor.startTime !== undefined && onJumpToTime) {
+      onJumpToTime(sourceAnchor.startTime);
+    }
+
+    // 高亮对应的segment
+    if (sourceAnchor.segmentId && onHighlightSegment) {
+      const targetSegment = segments.find((seg) => seg.id === sourceAnchor.segmentId);
+      if (targetSegment) {
+        onHighlightSegment(targetSegment.segmentIndex);
+      }
+    }
+  };
+
+  /**
+   * 处理原文点击
+   */
+  const handleExcerptClick = (point: KnowledgePoint) => {
+    handleBadgeClick(point);
+  };
+
+  /**
+   * 处理洞察按钮点击 - 打印所有信息
+   */
+  const handleInsightClick = (point: KnowledgePoint, e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log('知识点完整信息:', {
+      id: point.id,
+      topic: point.topic,
+      excerpt: point.excerpt,
+      confidenceScore: point.confidenceScore,
+      sourceAnchor: point.sourceAnchor,
+      contextText: getContextText(point),
+      fullPoint: point,
+    });
+  };
+
   // 显示知识点列表
   return (
     <Card title="知识点" className={styles.knowledgeCard}>
       <div className={styles.knowledgePointsContainer}>
-        {knowledgePoints.map((point, index) => (
-          <div key={point.id} className={styles.knowledgePointCard}>
-            <div className={styles.knowledgePointHeader}>
-              <Title level={5} className={styles.knowledgePointTopic}>
-                {point.topic}
-              </Title>
-              <span className={styles.knowledgePointBadge}>
-                [{index + 1}]
-              </span>
-            </div>
-            <Text className={styles.knowledgePointExcerpt}>
-              {point.excerpt}
-            </Text>
-            {point.confidenceScore !== undefined && (
-              <div className={styles.knowledgePointMeta}>
-                <Text type="secondary" className={styles.confidenceScore}>
-                  置信度: {(point.confidenceScore * 100).toFixed(0)}%
-                </Text>
+        {knowledgePoints.map((point, index) => {
+          const isHighlighted = highlightedKnowledgePointId === point.id;
+
+          return (
+            <div
+              key={point.id}
+              className={`${styles.knowledgePointCard} ${
+                isHighlighted ? styles.knowledgePointCardHighlighted : ''
+              }`}
+            >
+              <div className={styles.knowledgePointHeader}>
+                <Title level={5} className={styles.knowledgePointTopic}>
+                  {point.topic}
+                </Title>
               </div>
-            )}
-          </div>
-        ))}
+              <div className={styles.knowledgePointExcerptWrapper}>
+                <Text
+                  className={styles.knowledgePointExcerpt}
+                  onClick={() => handleExcerptClick(point)}
+                >
+                  {point.excerpt} <span className={styles.knowledgePointBadge}>[{index + 1}]</span>
+                </Text>
+                <div className={styles.insightButtonWrapper}>
+                  <Button
+                    type="link"
+                    size="small"
+                    className={styles.insightButton}
+                    onClick={(e) => handleInsightClick(point, e)}
+                  >
+                    洞察
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
 }
-

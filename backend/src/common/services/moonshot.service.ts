@@ -78,6 +78,8 @@ export class MoonshotService {
       topic: string;
       excerpt: string;
       segmentId?: string;
+      startTime?: number;
+      endTime?: number;
       confidenceScore: number;
       displayOrder: number;
     }>
@@ -96,13 +98,15 @@ export class MoonshotService {
     );
 
     // 构建分段信息文本，用于定位
+    // 格式：segmentId: [时间段] 文本内容
     const segmentsText = segments
       .map((seg, index) => {
+        const segmentId = seg.segmentId || `segment_${index}`;
         const timeInfo =
           seg.start !== undefined && seg.end !== undefined
             ? `[${seg.start.toFixed(2)}s-${seg.end.toFixed(2)}s]`
             : `[片段${index + 1}]`;
-        return `${timeInfo} ${seg.text}`;
+        return `segmentId: ${segmentId} ${timeInfo} ${seg.text}`;
       })
       .join('\n');
 
@@ -126,7 +130,10 @@ export class MoonshotService {
 要求：
 1. 每个知识点需包含：topic（主题）、excerpt（原文摘录或轻度改写）
 2. excerpt需尽量使用原文，长度控制在50-150字
-3. 为每个excerpt标注它在原文中的位置（segment_id或时间段）
+3. 为每个excerpt标注它在原文中的位置：
+   - segmentId：必须使用分段信息中提供的 segmentId（格式：segmentId: xxx）
+   - startTime：该知识点在原文中的起始时间（秒），如果分段信息中有时间段则使用对应的时间
+   - endTime：该知识点在原文中的结束时间（秒），如果分段信息中有时间段则使用对应的时间
 4. 按重要性排序
 5. 知识点应该是独立的、有价值的观点或信息`;
 
@@ -153,12 +160,19 @@ ${segmentsText}
     {
       "topic": "知识点主题",
       "excerpt": "原文摘录",
-      "segmentId": "片段ID或索引",
+      "segmentId": "分段信息中提供的segmentId（必须准确匹配）",
+      "startTime": 0.20,
+      "endTime": 16.29,
       "confidenceScore": 0.95,
       "displayOrder": 1
     }
   ]
-}`;
+}
+
+重要提示：
+- segmentId 必须从分段信息中准确复制，不能自己生成或使用时间段字符串
+- startTime 和 endTime 使用数字（秒），不是字符串
+- 如果分段信息中没有时间段，startTime 和 endTime 可以为 null`;
 
     // 重试逻辑
     let lastError: Error | null = null;
@@ -205,6 +219,8 @@ ${segmentsText}
       topic: string;
       excerpt: string;
       segmentId?: string;
+      startTime?: number;
+      endTime?: number;
       confidenceScore: number;
       displayOrder: number;
     }>
@@ -259,6 +275,8 @@ ${segmentsText}
         topic: string;
         excerpt: string;
         segmentId?: string;
+        startTime?: number | null;
+        endTime?: number | null;
         confidenceScore?: number;
         displayOrder?: number;
       }>;
@@ -294,6 +312,8 @@ ${segmentsText}
       topic: string;
       excerpt: string;
       segmentId?: string;
+      startTime?: number;
+      endTime?: number;
       confidenceScore: number;
       displayOrder: number;
     }> = [];
@@ -305,10 +325,22 @@ ${segmentsText}
         continue;
       }
 
+      // 处理时间信息
+      const startTime =
+        typeof kp.startTime === 'number' && kp.startTime >= 0
+          ? kp.startTime
+          : undefined;
+      const endTime =
+        typeof kp.endTime === 'number' && kp.endTime >= 0
+          ? kp.endTime
+          : undefined;
+
       knowledgePoints.push({
         topic: kp.topic.trim(),
         excerpt: kp.excerpt.trim(),
-        segmentId: kp.segmentId,
+        segmentId: kp.segmentId?.trim(),
+        startTime,
+        endTime,
         confidenceScore:
           typeof kp.confidenceScore === 'number' &&
           kp.confidenceScore >= 0 &&

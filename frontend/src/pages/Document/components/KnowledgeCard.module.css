@@ -22,6 +22,12 @@
   box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
 }
 
+.knowledgePointCardHighlighted {
+  background-color: #fffbe6 !important;
+  border-color: #faad14 !important;
+  box-shadow: 0 2px 8px rgba(250, 173, 20, 0.3) !important;
+}
+
 .knowledgePointHeader {
   display: flex;
   justify-content: space-between;
@@ -37,34 +43,37 @@
   color: #262626;
 }
 
-.knowledgePointBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 24px;
-  padding: 0 8px;
-  background: #1890ff;
-  color: #fff;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.knowledgePointBadge:hover {
-  background: #40a9ff;
-  transform: scale(1.05);
+.knowledgePointExcerptWrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  position: relative;
 }
 
 .knowledgePointExcerpt {
-  display: block;
+  flex: 1;
   color: #595959;
   line-height: 1.6;
   font-size: 14px;
   margin-bottom: 8px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  display: inline-block;
+}
+
+.knowledgePointExcerpt:hover {
+  color: #1890ff;
+  .knowledgePointBadge {
+    color: #1890ff;
+  }
+}
+
+.knowledgePointBadge {
+  display: inline;
+  color: #8c8c8c;
+  font-size: 12px;
+  font-weight: normal;
+  vertical-align: super;
 }
 
 .knowledgePointMeta {
@@ -89,3 +98,47 @@
   margin-top: 16px;
 }
 
+/* Tooltip 样式 */
+.tooltipOverlay {
+  max-width: 400px;
+}
+
+.tooltipContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tooltipContext {
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.tooltipTime {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+}
+
+.tooltipButton {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.insightButtonWrapper {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.knowledgePointCard:hover .insightButtonWrapper {
+  opacity: 1;
+}
+
+.insightButton {
+  padding: 0 8px;
+  height: 24px;
+  font-size: 12px;
+}

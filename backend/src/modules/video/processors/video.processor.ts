@@ -233,9 +233,21 @@ export class VideoProcessor extends WorkerHost {
           // 保存知识点到数据库
           const knowledgePointDocs = knowledgePoints.map((kp) => {
             // 查找对应的segment
-            const segment = savedSegments.find(
+            // 优先通过 segmentId 匹配
+            let segment = savedSegments.find(
               (seg) => seg._id.toString() === kp.segmentId,
             );
+
+            // 如果通过 segmentId 找不到，尝试通过时间段匹配（作为备选方案）
+            if (!segment && kp.startTime !== undefined && kp.endTime !== undefined) {
+              segment = savedSegments.find(
+                (seg) =>
+                  seg.startTime !== undefined &&
+                  seg.endTime !== undefined &&
+                  Math.abs(seg.startTime - kp.startTime!) < 1 && // 允许1秒误差
+                  Math.abs(seg.endTime - kp.endTime!) < 1,
+              );
+            }
 
             // 构建sourceAnchor
             const sourceAnchor: {
@@ -251,8 +263,9 @@ export class VideoProcessor extends WorkerHost {
             };
 
             if (document.sourceType === 'video') {
-              sourceAnchor.startTime = segment?.startTime;
-              sourceAnchor.endTime = segment?.endTime;
+              // 优先使用大模型返回的时间，如果没有则使用 segment 的时间
+              sourceAnchor.startTime = kp.startTime ?? segment?.startTime;
+              sourceAnchor.endTime = kp.endTime ?? segment?.endTime;
             } else if (document.sourceType === 'pdf') {
               sourceAnchor.page = segment?.pageNumber;
               sourceAnchor.startOffset = segment?.startOffset;
