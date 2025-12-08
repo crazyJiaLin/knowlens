@@ -107,9 +107,7 @@ export class XfyunAudioExtractorService {
       throw new Error('没有可用的 B站 cookies。请在管理页面添加 cookies。');
     }
 
-    this.logger.log(
-      `找到 ${cookies.length} 个启用的 B站 cookies，开始尝试...`,
-    );
+    this.logger.log(`找到 ${cookies.length} 个启用的 B站 cookies，开始尝试...`);
 
     let lastError: Error | null = null;
     const timestamp = Date.now();
@@ -187,9 +185,7 @@ export class XfyunAudioExtractorService {
             cookie._id.toString(),
             errorMsg,
           );
-          this.logger.warn(
-            `Cookie ${cookie.name} 已标记为过期，尝试下一个...`,
-          );
+          this.logger.warn(`Cookie ${cookie.name} 已标记为过期，尝试下一个...`);
         }
 
         // 继续尝试下一个 cookie
@@ -212,9 +208,7 @@ export class XfyunAudioExtractorService {
     inputPath: string,
     outputPath: string,
   ): Promise<string> {
-    this.logger.log(
-      `开始将音频转换为 MP3 格式: ${inputPath} -> ${outputPath}`,
-    );
+    this.logger.log(`开始将音频转换为 MP3 格式: ${inputPath} -> ${outputPath}`);
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)
@@ -252,4 +246,3 @@ export class XfyunAudioExtractorService {
     return outputPath;
   }
 }
-

@@ -379,6 +379,209 @@ ${segmentsText}
   }
 
   /**
+   * 生成知识点的深度洞察
+   * - 基于知识点内容和上下文生成三段式洞察
+   * - 包含逻辑演绎、隐含信息、延伸思考
+   *
+   * @param topic 知识点主题
+   * @param excerpt 知识点摘录
+   * @param contextBefore 前文上下文
+   * @param contextAfter 后文上下文
+   * @returns 洞察结果
+   */
+  async generateInsight(
+    topic: string,
+    excerpt: string,
+    contextBefore: string,
+    contextAfter: string,
+  ): Promise<{
+    logic: string;
+    hiddenInfo: string;
+    extensionOptional: string;
+  }> {
+    if (!this.client) {
+      throw new Error('Moonshot 服务未配置，无法生成洞察');
+    }
+
+    if (!topic || !excerpt) {
+      throw new Error('知识点主题和摘录不能为空');
+    }
+
+    this.logger.log(`开始生成洞察，主题: ${topic}`);
+
+    // 构建 System Prompt
+    const systemPrompt = `你是一个深度思考专家，擅长从知识点中挖掘深层逻辑、隐含信息和延伸思考。
+
+你的任务是：
+1. 分析知识点背后的逻辑、原因或趋势
+2. 挖掘作者未直接说明但隐含的信息
+3. 提出可以进一步探索的方向和相关议题
+
+要求：
+- 分析要深入，避免浅层复述
+- 逻辑要清晰，有理有据
+- 延伸要有启发性`;
+
+    // 构建 User Prompt
+    const userPrompt = `请针对以下知识点生成洞察。
+
+知识点：
+${topic}
+${excerpt}
+
+原文上下文：
+${contextBefore}
+${excerpt}
+${contextAfter}
+
+请生成：
+1. logic：这个知识点背后的逻辑、原因或趋势（200字以内）
+2. hiddenInfo：作者未直接说明但隐含的信息（150字以内）
+3. extensionOptional：可以进一步探索的方向和相关议题（150字以内）
+
+要求：
+- 分析要深入，避免浅层复述
+- 逻辑要清晰，有理有据
+- 延伸要有启发性
+
+以JSON格式输出：
+{
+  "logic": "...",
+  "hiddenInfo": "...",
+  "extensionOptional": "..."
+}`;
+
+    // 重试逻辑
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          this.logger.log(
+            `第 ${attempt} 次重试洞察生成（共 ${this.maxRetries} 次）`,
+          );
+          await this.sleep(this.retryDelay * attempt);
+        }
+
+        const result = await this.generateInsightWithRetry(
+          systemPrompt,
+          userPrompt,
+        );
+        this.logger.log('洞察生成完成');
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          `洞察生成失败（尝试 ${attempt + 1}/${this.maxRetries + 1}）: ${lastError.message}`,
+        );
+
+        if (attempt >= this.maxRetries) {
+          break;
+        }
+      }
+    }
+
+    throw new Error(
+      `洞察生成失败，已重试 ${this.maxRetries} 次: ${lastError?.message}`,
+    );
+  }
+
+  /**
+   * 执行洞察生成（单次尝试）
+   */
+  private async generateInsightWithRetry(
+    systemPrompt: string,
+    userPrompt: string,
+  ): Promise<{
+    logic: string;
+    hiddenInfo: string;
+    extensionOptional: string;
+  }> {
+    if (!this.client) {
+      throw new Error('Moonshot 客户端未初始化');
+    }
+
+    const model =
+      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+
+    const startTime = Date.now();
+
+    // 创建带超时的请求
+    const requestPromise = this.client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      temperature: 0.7, // 稍高温度，鼓励创造性思考
+      response_format: { type: 'json_object' },
+    });
+
+    // 使用 Promise.race 实现超时控制
+    const timeoutPromise = this.createTimeoutPromise(this.timeout);
+    const response = await Promise.race([
+      requestPromise,
+      timeoutPromise.then(() => {
+        throw new Error(`请求超时（${this.timeout}ms）`);
+      }),
+    ]);
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Moonshot API 返回空内容');
+    }
+
+    const generationTimeMs = Date.now() - startTime;
+    const tokensUsed =
+      response.usage?.total_tokens || response.usage?.prompt_tokens || 0;
+
+    // 打印 LLM 模型调用返回的原始结果
+    this.logger.log('=== Moonshot API 返回结果（洞察生成）===');
+    this.logger.log(`返回内容长度: ${content.length} 字符`);
+    this.logger.log(`生成耗时: ${generationTimeMs}ms`);
+    this.logger.log(`Token使用: ${tokensUsed}`);
+    this.logger.debug(`返回内容: ${JSON.stringify(content)}`);
+    this.logger.log('==========================================');
+
+    // 解析 JSON 响应
+    let result: {
+      logic?: string;
+      hiddenInfo?: string;
+      extensionOptional?: string;
+    };
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      result = JSON.parse(content);
+    } catch (parseError) {
+      this.logger.error(`JSON 解析失败: ${parseError}`);
+      this.logger.debug(`返回内容: ${content.substring(0, 500)}`);
+      throw new Error('Moonshot API 返回的 JSON 格式错误');
+    }
+
+    // 验证返回结果
+    if (!result.logic) {
+      throw new Error('Moonshot API 返回格式错误：缺少 logic 字段');
+    }
+
+    // 打印解析后的结果
+    this.logger.log('=== 解析后的结果（洞察生成）===');
+    this.logger.debug(`解析结果: ${JSON.stringify(result, null, 2)}`);
+    this.logger.log('==================================');
+
+    return {
+      logic: result.logic.trim(),
+      hiddenInfo: result.hiddenInfo?.trim() || '',
+      extensionOptional: result.extensionOptional?.trim() || '',
+    };
+  }
+
+  /**
    * 延迟函数
    */
   private sleep(ms: number): Promise<void> {

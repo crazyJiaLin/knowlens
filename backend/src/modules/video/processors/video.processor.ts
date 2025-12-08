@@ -239,7 +239,11 @@ export class VideoProcessor extends WorkerHost {
             );
 
             // 如果通过 segmentId 找不到，尝试通过时间段匹配（作为备选方案）
-            if (!segment && kp.startTime !== undefined && kp.endTime !== undefined) {
+            if (
+              !segment &&
+              kp.startTime !== undefined &&
+              kp.endTime !== undefined
+            ) {
               segment = savedSegments.find(
                 (seg) =>
                   seg.startTime !== undefined &&

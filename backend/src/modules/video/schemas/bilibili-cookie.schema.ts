@@ -40,9 +40,9 @@ export class BilibiliCookie {
   updatedBy?: string; // 最后编辑者手机号
 }
 
-export const BilibiliCookieSchema = SchemaFactory.createForClass(BilibiliCookie);
+export const BilibiliCookieSchema =
+  SchemaFactory.createForClass(BilibiliCookie);
 
 // 创建索引
 BilibiliCookieSchema.index({ status: 1, createdAt: -1 });
 BilibiliCookieSchema.index({ status: 1, lastUsedAt: -1 });
-

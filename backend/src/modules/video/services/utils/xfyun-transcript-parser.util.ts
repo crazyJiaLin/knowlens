@@ -324,4 +324,3 @@ export class XfyunTranscriptParser {
     }
   }
 }
-

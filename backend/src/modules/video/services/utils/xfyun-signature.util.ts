@@ -93,4 +93,3 @@ export class XfyunSignatureUtil {
     return signature;
   }
 }
-

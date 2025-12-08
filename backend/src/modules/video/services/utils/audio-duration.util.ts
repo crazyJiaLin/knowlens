@@ -37,9 +37,9 @@ export class AudioDurationUtil {
       );
       try {
         // 动态导入 music-metadata（ES Module）
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         const { parseFile } = await import('music-metadata');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+
         const metadata = await parseFile(audioPath);
         const durationSeconds = (metadata as { format?: { duration?: number } })
           ?.format?.duration;
@@ -63,4 +63,3 @@ export class AudioDurationUtil {
     }
   }
 }
-

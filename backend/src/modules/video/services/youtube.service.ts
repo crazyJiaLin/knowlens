@@ -162,7 +162,6 @@ export class YoutubeService {
           setTimeout(() => reject(new Error('字幕获取超时')), 10000);
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const result = (await Promise.race([
           YoutubeTranscript.fetchTranscript(videoId),
           timeoutPromise,

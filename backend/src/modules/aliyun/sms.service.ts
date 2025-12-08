@@ -72,12 +72,11 @@ export class SmsService {
         method: 'POST',
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-      const response = (await this.smsClient.request(
+      const response = await this.smsClient.request(
         'SendSms',
         params,
         requestOption,
-      )) as { Code?: string; Message?: string };
+      );
 
       if (response.Code === 'OK') {
         this.logger.log(`短信验证码发送成功: ${phone}`);

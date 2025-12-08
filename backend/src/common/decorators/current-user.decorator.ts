@@ -5,4 +5,3 @@ import { User } from './user.decorator';
  * 用于从请求中获取当前用户信息
  */
 export const CurrentUser = User;
-

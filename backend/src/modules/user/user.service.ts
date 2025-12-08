@@ -103,8 +103,8 @@ export class UserService {
       'image/gif',
       'image/webp',
     ];
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const mimetype = file.mimetype as string;
+
+    const mimetype = file.mimetype;
     if (!allowedMimeTypes.includes(mimetype)) {
       throw new BadRequestException(
         '只支持上传图片文件（JPEG、PNG、GIF、WebP）',
@@ -113,8 +113,8 @@ export class UserService {
 
     // 验证文件大小（5MB）
     const maxSize = 5 * 1024 * 1024; // 5MB
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const fileSize = file.size as number;
+
+    const fileSize = file.size;
     if (fileSize > maxSize) {
       throw new BadRequestException('文件大小不能超过5MB');
     }
