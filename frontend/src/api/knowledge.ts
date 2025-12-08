@@ -33,6 +33,38 @@ export type KnowledgePointsResponse = {
 // ==================== API 请求 ====================
 
 /**
+ * 转换 Mongoose 文档的 _id 为 id
+ */
+function transformMongooseDoc(doc: any): any {
+  if (!doc) return doc;
+  
+  // 如果是数组，递归处理每个元素
+  if (Array.isArray(doc)) {
+    return doc.map(transformMongooseDoc);
+  }
+  
+  // 如果是对象，转换 _id 为 id
+  if (typeof doc === 'object') {
+    const transformed = { ...doc };
+    if (transformed._id) {
+      transformed.id = transformed._id.toString();
+      delete transformed._id;
+    }
+    
+    // 递归处理嵌套对象
+    for (const key in transformed) {
+      if (transformed[key] && typeof transformed[key] === 'object') {
+        transformed[key] = transformMongooseDoc(transformed[key]);
+      }
+    }
+    
+    return transformed;
+  }
+  
+  return doc;
+}
+
+/**
  * 获取文档的知识点列表
  */
 export const getKnowledgePoints = async (
@@ -44,7 +76,10 @@ export const getKnowledgePoints = async (
       params: { documentId },
     }
   );
-  return response.data;
+  
+  // 转换 _id 为 id
+  const transformedData = transformMongooseDoc(response.data);
+  return transformedData;
 };
 
 /**

@@ -380,20 +380,19 @@ ${segmentsText}
 
   /**
    * 生成知识点的深度洞察
-   * - 基于知识点内容和上下文生成三段式洞察
+   * - 基于知识点内容和完整原文生成三段式洞察
    * - 包含逻辑演绎、隐含信息、延伸思考
+   * - 使用 assistant 消息缓存原文内容以减少 token 消耗
    *
    * @param topic 知识点主题
    * @param excerpt 知识点摘录
-   * @param contextBefore 前文上下文
-   * @param contextAfter 后文上下文
+   * @param allSegmentsText 所有片段文本（完整原文）
    * @returns 洞察结果
    */
   async generateInsight(
     topic: string,
     excerpt: string,
-    contextBefore: string,
-    contextAfter: string,
+    allSegmentsText: string,
   ): Promise<{
     logic: string;
     hiddenInfo: string;
@@ -422,19 +421,14 @@ ${segmentsText}
 - 逻辑要清晰，有理有据
 - 延伸要有启发性`;
 
-    // 构建 User Prompt
+    // 构建 User Prompt（只包含知识点和问题，原文通过 assistant 消息传递）
     const userPrompt = `请针对以下知识点生成洞察。
 
 知识点：
 ${topic}
 ${excerpt}
 
-原文上下文：
-${contextBefore}
-${excerpt}
-${contextAfter}
-
-请生成：
+请基于上述原文内容，生成：
 1. logic：这个知识点背后的逻辑、原因或趋势（200字以内）
 2. hiddenInfo：作者未直接说明但隐含的信息（150字以内）
 3. extensionOptional：可以进一步探索的方向和相关议题（150字以内）
@@ -443,6 +437,7 @@ ${contextAfter}
 - 分析要深入，避免浅层复述
 - 逻辑要清晰，有理有据
 - 延伸要有启发性
+- 需要结合完整的原文上下文进行分析
 
 以JSON格式输出：
 {
@@ -465,6 +460,7 @@ ${contextAfter}
         const result = await this.generateInsightWithRetry(
           systemPrompt,
           userPrompt,
+          allSegmentsText,
         );
         this.logger.log('洞察生成完成');
         return result;
@@ -486,11 +482,182 @@ ${contextAfter}
   }
 
   /**
+   * 流式生成洞察
+   * @param topic 知识点主题
+   * @param excerpt 知识点摘录
+   * @param allSegmentsText 所有片段文本
+   * @param onChunk 接收流式数据的回调函数
+   */
+  async generateInsightStream(
+    topic: string,
+    excerpt: string,
+    allSegmentsText: string,
+    onChunk: (chunk: {
+      logic?: string;
+      hiddenInfo?: string;
+      extensionOptional?: string;
+    }) => void,
+  ): Promise<void> {
+    if (!this.client) {
+      throw new Error('Moonshot 服务未配置，无法生成洞察');
+    }
+
+    if (!topic || !excerpt) {
+      throw new Error('知识点主题和摘录不能为空');
+    }
+
+    this.logger.log(`开始流式生成洞察，主题: ${topic}`);
+
+    // 构建 System Prompt
+    const systemPrompt = `你是一个深度思考专家，擅长从知识点中挖掘深层逻辑、隐含信息和延伸思考。
+
+你的任务是：
+1. 分析知识点背后的逻辑、原因或趋势
+2. 挖掘作者未直接说明但隐含的信息
+3. 提出可以进一步探索的方向和相关议题
+
+要求：
+- 分析要深入，避免浅层复述
+- 逻辑要清晰，有理有据
+- 延伸要有启发性`;
+
+    // 构建 User Prompt
+    const userPrompt = `请针对以下知识点生成洞察。
+
+知识点：
+${topic}
+${excerpt}
+
+请基于上述原文内容，生成：
+1. logic：这个知识点背后的逻辑、原因或趋势（200字以内）
+2. hiddenInfo：作者未直接说明但隐含的信息（150字以内）
+3. extensionOptional：可以进一步探索的方向和相关议题（150字以内）
+
+要求：
+- 分析要深入，避免浅层复述
+- 逻辑要清晰，有理有据
+- 延伸要有启发性
+- 需要结合完整的原文上下文进行分析
+
+以JSON格式输出：
+{
+  "logic": "...",
+  "hiddenInfo": "...",
+  "extensionOptional": "..."
+}`;
+
+    const model =
+      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+
+    // 创建流式请求
+    const stream = await this.client.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'assistant',
+          content: `以下是完整的原文内容，包含所有片段：
+
+${allSegmentsText}
+
+请基于这些原文内容回答用户的问题。`,
+        },
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+      stream: true, // 启用流式输出
+    });
+
+    let buffer = '';
+    const result: {
+      logic: string;
+      hiddenInfo: string;
+      extensionOptional: string;
+    } = {
+      logic: '',
+      hiddenInfo: '',
+      extensionOptional: '',
+    };
+
+    // 处理流式数据
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        buffer += content;
+
+        // 尝试解析 JSON（可能是不完整的）
+        try {
+          // 尝试找到完整的 JSON 对象
+          const jsonMatch = buffer.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[0];
+            const parsed = JSON.parse(jsonStr) as {
+              logic?: string;
+              hiddenInfo?: string;
+              extensionOptional?: string;
+            };
+
+            // 更新结果并发送增量更新
+            if (parsed.logic && parsed.logic !== result.logic) {
+              result.logic = parsed.logic;
+              onChunk({ logic: parsed.logic });
+            }
+            if (parsed.hiddenInfo && parsed.hiddenInfo !== result.hiddenInfo) {
+              result.hiddenInfo = parsed.hiddenInfo;
+              onChunk({ hiddenInfo: parsed.hiddenInfo });
+            }
+            if (
+              parsed.extensionOptional &&
+              parsed.extensionOptional !== result.extensionOptional
+            ) {
+              result.extensionOptional = parsed.extensionOptional;
+              onChunk({ extensionOptional: parsed.extensionOptional });
+            }
+          }
+        } catch {
+          // JSON 还不完整，继续等待
+        }
+      }
+    }
+
+    // 最终解析完整的 JSON
+    try {
+      const jsonMatch = buffer.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[0];
+        const parsed = JSON.parse(jsonStr) as {
+          logic?: string;
+          hiddenInfo?: string;
+          extensionOptional?: string;
+        };
+        result.logic = parsed.logic || result.logic;
+        result.hiddenInfo = parsed.hiddenInfo || result.hiddenInfo;
+        result.extensionOptional =
+          parsed.extensionOptional || result.extensionOptional;
+      }
+    } catch (error) {
+      this.logger.error('解析流式 JSON 失败:', error);
+      throw new Error('解析洞察结果失败');
+    }
+
+    this.logger.log('流式洞察生成完成');
+  }
+
+  /**
    * 执行洞察生成（单次尝试）
+   * 使用 assistant 消息缓存原文内容，减少 token 消耗
    */
   private async generateInsightWithRetry(
     systemPrompt: string,
     userPrompt: string,
+    allSegmentsText: string,
   ): Promise<{
     logic: string;
     hiddenInfo: string;
@@ -506,12 +673,22 @@ ${contextAfter}
     const startTime = Date.now();
 
     // 创建带超时的请求
+    // 使用 assistant 消息缓存原文内容，这样可以减少 token 消耗
+    // 原文内容作为 assistant 消息，后续相同文档的请求可以复用
     const requestPromise = this.client.chat.completions.create({
       model,
       messages: [
         {
           role: 'system',
           content: systemPrompt,
+        },
+        {
+          role: 'assistant',
+          content: `以下是完整的原文内容，包含所有片段：
+
+${allSegmentsText}
+
+请基于这些原文内容回答用户的问题。`,
         },
         {
           role: 'user',
@@ -542,10 +719,9 @@ ${contextAfter}
 
     // 打印 LLM 模型调用返回的原始结果
     this.logger.log('=== Moonshot API 返回结果（洞察生成）===');
-    this.logger.log(`返回内容长度: ${content.length} 字符`);
-    this.logger.log(`生成耗时: ${generationTimeMs}ms`);
-    this.logger.log(`Token使用: ${tokensUsed}`);
-    this.logger.debug(`返回内容: ${JSON.stringify(content)}`);
+    this.logger.log(
+      `返回内容长度: ${content.length} 字符，生成耗时: ${generationTimeMs}ms ，Token使用: ${tokensUsed}， 返回内容: ${JSON.stringify(content)}`,
+    );
     this.logger.log('==========================================');
 
     // 解析 JSON 响应

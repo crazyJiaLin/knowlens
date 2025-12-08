@@ -6,7 +6,9 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InsightService } from './insight.service';
 import { GenerateInsightDto } from './dto/generate-insight.dto';
@@ -42,5 +44,49 @@ export class InsightController {
         extensionOptional: insight.extensionOptional,
       },
     };
+  }
+
+  /**
+   * 生成或获取知识点的洞察（流式输出）
+   * POST /api/insight/generate-stream
+   */
+  @Post('generate-stream')
+  async generateInsightStream(
+    @Body() dto: GenerateInsightDto,
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    const { kp_id, force_regenerate = false } = dto;
+
+    if (!kp_id) {
+      throw new BadRequestException('kp_id 参数必填');
+    }
+
+    // 设置 SSE 响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+
+    try {
+      // 使用流式生成洞察
+      await this.insightService.generateOrGetInsightStream(
+        kp_id,
+        force_regenerate,
+        (chunk) => {
+          // 发送 SSE 数据
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        },
+      );
+
+      // 发送完成标记
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error) {
+      // 发送错误信息
+      const errorMessage =
+        error instanceof Error ? error.message : String(error) || '生成失败';
+      res.write(`data: ${JSON.stringify({ error: errorMessage })}\n\n`);
+      res.end();
+    }
   }
 }

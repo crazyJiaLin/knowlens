@@ -6,11 +6,29 @@ import { useAuthStore } from '@/stores/authStore';
 import { logout } from '@/api/auth';
 import { message } from 'antd';
 import { useUIStore } from '@/stores/uiStore';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout: logoutStore } = useAuthStore();
   const { openLoginModal } = useUIStore();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // 监听滚动事件
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      setIsScrolled(scrollTop > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    // 初始化时检查一次
+    handleScroll();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -56,6 +74,9 @@ export default function Header() {
         position: 'sticky',
         top: 0,
         zIndex: 1000,
+        backgroundColor: isScrolled ? '#fff' : 'transparent',
+        boxShadow: isScrolled ? '0 2px 8px rgba(0, 0, 0, 0.1)' : 'none',
+        transition: 'all 0.6s ease',
       }}
     >
       {/* 左侧占位 */}

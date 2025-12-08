@@ -2,6 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Core from '@alicloud/pop-core';
 
+// 阿里云短信服务响应类型
+interface AliyunSmsResponse {
+  Code?: string;
+  Message?: string;
+  RequestId?: string;
+  BizId?: string;
+}
+
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
@@ -72,20 +80,22 @@ export class SmsService {
         method: 'POST',
       };
 
+      // @alicloud/pop-core 的 request 方法返回 unknown 类型，需要进行类型断言
       const response = await this.smsClient.request(
         'SendSms',
         params,
         requestOption,
       );
+      const smsResponse = response as AliyunSmsResponse;
 
-      if (response.Code === 'OK') {
+      if (smsResponse.Code === 'OK') {
         this.logger.log(`短信验证码发送成功: ${phone}`);
         return {
           success: true,
           message: '验证码发送成功',
         };
       } else {
-        const errorMsg = response.Message || '发送失败';
+        const errorMsg = smsResponse.Message || '发送失败';
         this.logger.error(`短信发送失败: ${errorMsg}`);
         return {
           success: false,
@@ -93,10 +103,12 @@ export class SmsService {
         };
       }
     } catch (error) {
-      this.logger.error(`短信发送异常: ${error}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`短信发送异常: ${errorMessage}`);
       return {
         success: false,
-        message: `短信发送失败: ${error}`,
+        message: `短信发送失败: ${errorMessage}`,
       };
     }
   }

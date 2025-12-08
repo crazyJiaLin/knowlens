@@ -2,6 +2,7 @@ import { Card, Typography, Empty, Spin, Skeleton, Button } from 'antd';
 import { useEffect, useState } from 'react';
 import { getKnowledgePoints, type KnowledgePoint } from '@/api/knowledge';
 import type { Segment } from '@/api/document';
+import InsightCard from './InsightCard';
 import styles from './KnowledgeCard.module.css';
 
 const { Text, Title } = Typography;
@@ -26,6 +27,10 @@ export default function KnowledgeCard({
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  // 使用 Set 来跟踪多个知识点的展开状态，每个知识点独立
+  const [expandedInsightIds, setExpandedInsightIds] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     // 只有在文档处理完成后才加载知识点
@@ -38,7 +43,14 @@ export default function KnowledgeCard({
       setError(null);
       try {
         const points = await getKnowledgePoints(documentId);
-        setKnowledgePoints(points);
+        console.log('加载的知识点数据:', points);
+        // 确保每个知识点都有 id 字段
+        const transformedPoints = points.map((point) => ({
+          ...point,
+          id: point.id || (point as { _id?: { toString: () => string } })._id?.toString() || '',
+        }));
+        console.log('转换后的知识点数据:', transformedPoints);
+        setKnowledgePoints(transformedPoints);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('加载知识点失败'));
         console.error('加载知识点失败:', err);
@@ -94,44 +106,6 @@ export default function KnowledgeCard({
   }
 
   /**
-   * 获取知识点的上下文文本（前后1-2个segment）
-   */
-  const getContextText = (point: KnowledgePoint): string => {
-    if (!point.sourceAnchor.segmentId || segments.length === 0) {
-      return point.excerpt;
-    }
-
-    // 查找对应的segment
-    const targetSegment = segments.find((seg) => seg.id === point.sourceAnchor.segmentId);
-
-    if (!targetSegment) {
-      return point.excerpt;
-    }
-
-    const segmentIndex = targetSegment.segmentIndex;
-    const contextSegments: Segment[] = [];
-
-    // 获取前1-2个segment
-    for (let i = Math.max(0, segmentIndex - 2); i < segmentIndex; i++) {
-      if (segments[i]) {
-        contextSegments.push(segments[i]);
-      }
-    }
-
-    // 添加当前segment
-    contextSegments.push(targetSegment);
-
-    // 获取后1-2个segment
-    for (let i = segmentIndex + 1; i <= Math.min(segments.length - 1, segmentIndex + 2); i++) {
-      if (segments[i]) {
-        contextSegments.push(segments[i]);
-      }
-    }
-
-    return contextSegments.map((seg) => seg.text).join(' ');
-  };
-
-  /**
    * 处理角标点击
    */
   const handleBadgeClick = (point: KnowledgePoint) => {
@@ -160,57 +134,71 @@ export default function KnowledgeCard({
   };
 
   /**
-   * 处理洞察按钮点击 - 打印所有信息
+   * 处理洞察按钮点击
    */
   const handleInsightClick = (point: KnowledgePoint, e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('知识点完整信息:', {
-      id: point.id,
-      topic: point.topic,
-      excerpt: point.excerpt,
-      confidenceScore: point.confidenceScore,
-      sourceAnchor: point.sourceAnchor,
-      contextText: getContextText(point),
-      fullPoint: point,
+    // 切换当前知识点的展开状态，不影响其他知识点
+    setExpandedInsightIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(point.id)) {
+        newSet.delete(point.id);
+      } else {
+        newSet.add(point.id);
+      }
+      return newSet;
     });
   };
 
-  // 显示知识点列表
+
+  // 显示知识点列表（保持原始顺序）
   return (
     <Card title="知识点" className={styles.knowledgeCard}>
       <div className={styles.knowledgePointsContainer}>
         {knowledgePoints.map((point, index) => {
           const isHighlighted = highlightedKnowledgePointId === point.id;
+          const isExpanded = expandedInsightIds.has(point.id);
 
           return (
-            <div
-              key={point.id}
-              className={`${styles.knowledgePointCard} ${
-                isHighlighted ? styles.knowledgePointCardHighlighted : ''
-              }`}
-            >
-              <div className={styles.knowledgePointHeader}>
-                <Title level={5} className={styles.knowledgePointTopic}>
-                  {point.topic}
-                </Title>
-              </div>
-              <div className={styles.knowledgePointExcerptWrapper}>
-                <Text
-                  className={styles.knowledgePointExcerpt}
-                  onClick={() => handleExcerptClick(point)}
-                >
-                  {point.excerpt} <span className={styles.knowledgePointBadge}>[{index + 1}]</span>
-                </Text>
-                <div className={styles.insightButtonWrapper}>
-                  <Button
-                    type="link"
-                    size="small"
-                    className={styles.insightButton}
-                    onClick={(e) => handleInsightClick(point, e)}
-                  >
-                    洞察
-                  </Button>
+            <div key={point.id} className={styles.knowledgePointItem}>
+              <div
+                className={`${styles.knowledgePointCard} ${
+                  isHighlighted ? styles.knowledgePointCardHighlighted : ''
+                } ${isExpanded ? styles.knowledgePointCardExpanded : ''}`}
+              >
+                <div className={styles.knowledgePointHeader}>
+                  <Title level={5} className={styles.knowledgePointTopic}>
+                    {point.topic}
+                  </Title>
                 </div>
+                <div className={styles.knowledgePointExcerptWrapper}>
+                  <Text
+                    className={styles.knowledgePointExcerpt}
+                    onClick={() => handleExcerptClick(point)}
+                  >
+                    {point.excerpt}{' '}
+                    <span className={styles.knowledgePointBadge}>
+                      [{index + 1}]
+                    </span>
+                  </Text>
+                  <div className={styles.insightButtonWrapper}>
+                    <Button
+                      type={isExpanded ? 'default' : 'link'}
+                      size="small"
+                      className={styles.insightButton}
+                      onClick={(e) => handleInsightClick(point, e)}
+                    >
+                      {isExpanded ? '收起' : '洞察'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 嵌入的洞察内容 */}
+                {isExpanded && (
+                  <div className={styles.insightContentWrapper}>
+                    <InsightCard knowledgePointId={point.id} />
+                  </div>
+                )}
               </div>
             </div>
           );

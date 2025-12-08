@@ -63,9 +63,8 @@ export class InsightService {
       );
     }
 
-    // 获取上下文段落
-    const { contextBefore, contextAfter } =
-      await this.getContextSegments(knowledgePoint);
+    // 获取所有片段数据
+    const { allSegmentsText } = await this.getAllSegments(knowledgePoint);
 
     // 调用 Moonshot 生成洞察
     this.logger.log(
@@ -75,8 +74,7 @@ export class InsightService {
     const insightResult = await this.moonshotService.generateInsight(
       knowledgePoint.topic,
       knowledgePoint.excerpt,
-      contextBefore,
-      contextAfter,
+      allSegmentsText,
     );
     const generationTimeMs = Date.now() - startTime;
 
@@ -112,13 +110,13 @@ export class InsightService {
   }
 
   /**
-   * 获取知识点的上下文段落
+   * 获取知识点的所有片段数据
    * @param knowledgePoint 知识点
-   * @returns 前后文上下文
+   * @returns 所有片段文本和知识点对应的segment索引
    */
-  private async getContextSegments(
+  private async getAllSegments(
     knowledgePoint: KnowledgePointDocument,
-  ): Promise<{ contextBefore: string; contextAfter: string }> {
+  ): Promise<{ allSegmentsText: string; targetSegmentIndex: number }> {
     // 获取文档的所有片段
     const segments = await this.segmentModel
       .find({ documentId: knowledgePoint.documentId })
@@ -126,10 +124,22 @@ export class InsightService {
       .exec();
 
     if (segments.length === 0) {
-      return { contextBefore: '', contextAfter: '' };
+      return { allSegmentsText: '', targetSegmentIndex: -1 };
     }
 
-    // 查找知识点对应的 segment
+    // 构建所有片段的文本，格式：segmentId: [时间段] 文本内容
+    const allSegmentsText = segments
+      .map((seg, index) => {
+        const segmentId = seg._id.toString();
+        const timeInfo =
+          seg.startTime !== undefined && seg.endTime !== undefined
+            ? `[${seg.startTime.toFixed(2)}s-${seg.endTime.toFixed(2)}s]`
+            : `[片段${index + 1}]`;
+        return `segmentId: ${segmentId} ${timeInfo} ${seg.text}`;
+      })
+      .join('\n');
+
+    // 查找知识点对应的 segment 索引
     let targetSegmentIndex = -1;
     if (knowledgePoint.sourceAnchor.segmentId) {
       const targetSegment = segments.find(
@@ -161,36 +171,129 @@ export class InsightService {
       targetSegmentIndex = 0;
     }
 
-    // 获取前1-2个 segment 作为前文
-    const contextBeforeSegments: SegmentDocument[] = [];
-    for (
-      let i = Math.max(0, targetSegmentIndex - 2);
-      i < targetSegmentIndex;
-      i++
-    ) {
-      if (segments[i]) {
-        contextBeforeSegments.push(segments[i]);
+    return { allSegmentsText, targetSegmentIndex };
+  }
+
+  /**
+   * 生成或获取知识点的洞察（流式输出）
+   * @param knowledgePointId 知识点ID
+   * @param forceRegenerate 是否强制重新生成
+   * @param onChunk 接收流式数据的回调函数
+   */
+  async generateOrGetInsightStream(
+    knowledgePointId: string,
+    forceRegenerate: boolean,
+    onChunk: (chunk: {
+      logic?: string;
+      hiddenInfo?: string;
+      extensionOptional?: string;
+    }) => void,
+  ): Promise<void> {
+    // 检查知识点是否存在
+    const knowledgePoint =
+      await this.knowledgePointModel.findById(knowledgePointId);
+    if (!knowledgePoint) {
+      throw new NotFoundException('知识点不存在');
+    }
+
+    // 如果不需要强制重新生成，先查询是否已有洞察
+    if (!forceRegenerate) {
+      const existingInsight = await this.insightModel.findOne({
+        knowledgePointId,
+      });
+      if (existingInsight) {
+        this.logger.log(`返回已有洞察，knowledgePointId: ${knowledgePointId}`);
+        // 流式返回已有洞察
+        onChunk({ logic: existingInsight.logic });
+        onChunk({ hiddenInfo: existingInsight.hiddenInfo });
+        onChunk({ extensionOptional: existingInsight.extensionOptional });
+        return;
       }
     }
 
-    // 获取后1-2个 segment 作为后文
-    const contextAfterSegments: SegmentDocument[] = [];
-    for (
-      let i = targetSegmentIndex + 1;
-      i <= Math.min(segments.length - 1, targetSegmentIndex + 2);
-      i++
-    ) {
-      if (segments[i]) {
-        contextAfterSegments.push(segments[i]);
-      }
+    // 检查 Moonshot 服务是否可用
+    if (!this.moonshotService.isAvailable()) {
+      throw new ServiceUnavailableException(
+        'Moonshot 服务未配置，无法生成洞察',
+      );
     }
 
-    const contextBefore = contextBeforeSegments
-      .map((seg) => seg.text)
-      .join(' ');
-    const contextAfter = contextAfterSegments.map((seg) => seg.text).join(' ');
+    // 获取所有片段数据
+    const { allSegmentsText } = await this.getAllSegments(knowledgePoint);
 
-    return { contextBefore, contextAfter };
+    // 调用 Moonshot 流式生成洞察
+    this.logger.log(
+      `开始流式生成洞察，knowledgePointId: ${knowledgePointId}, forceRegenerate: ${forceRegenerate}`,
+    );
+    const startTime = Date.now();
+
+    const insightResult: {
+      logic: string;
+      hiddenInfo: string;
+      extensionOptional: string;
+    } = {
+      logic: '',
+      hiddenInfo: '',
+      extensionOptional: '',
+    };
+
+    await this.moonshotService.generateInsightStream(
+      knowledgePoint.topic,
+      knowledgePoint.excerpt,
+      allSegmentsText,
+      (chunk: {
+        logic?: string;
+        hiddenInfo?: string;
+        extensionOptional?: string;
+      }) => {
+        // 更新结果
+        if (chunk.logic !== undefined && typeof chunk.logic === 'string') {
+          insightResult.logic = chunk.logic;
+          onChunk({ logic: chunk.logic });
+        }
+        if (
+          chunk.hiddenInfo !== undefined &&
+          typeof chunk.hiddenInfo === 'string'
+        ) {
+          insightResult.hiddenInfo = chunk.hiddenInfo;
+          onChunk({ hiddenInfo: chunk.hiddenInfo });
+        }
+        if (
+          chunk.extensionOptional !== undefined &&
+          typeof chunk.extensionOptional === 'string'
+        ) {
+          insightResult.extensionOptional = chunk.extensionOptional;
+          onChunk({ extensionOptional: chunk.extensionOptional });
+        }
+      },
+    );
+
+    const generationTimeMs = Date.now() - startTime;
+
+    // 保存或更新洞察
+    const insightData = {
+      knowledgePointId,
+      logic: insightResult.logic,
+      hiddenInfo: insightResult.hiddenInfo,
+      extensionOptional: insightResult.extensionOptional,
+      generationTimeMs,
+    };
+
+    if (forceRegenerate) {
+      await this.insightModel.findOneAndUpdate(
+        { knowledgePointId },
+        insightData,
+        { upsert: true, new: true },
+      );
+      this.logger.log(
+        `洞察已流式重新生成并保存，knowledgePointId: ${knowledgePointId}`,
+      );
+    } else {
+      await this.insightModel.create(insightData);
+      this.logger.log(
+        `洞察已流式生成并保存，knowledgePointId: ${knowledgePointId}`,
+      );
+    }
   }
 
   /**

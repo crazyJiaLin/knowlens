@@ -1,0 +1,111 @@
+.insightCardWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.insightCard {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  position: relative;
+  padding: 0;
+  width: 100%;
+}
+
+.closeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  color: #8c8c8c;
+  transition: color 0.3s ease;
+  padding: 4px;
+}
+
+.closeButton:hover {
+  color: #262626;
+}
+
+.insightHeader {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.insightTitle {
+  margin: 0 !important;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3baf9f;
+}
+
+
+.insightContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.insightSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0 !important;
+  font-size: 14px;
+  font-weight: 600;
+  color: #3baf9f;
+}
+
+.sectionContent {
+  display: block;
+  color: #595959;
+  line-height: 1.8;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.insightActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  text-align: center;
+}
+
+.errorIcon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.errorTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.errorMessage {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+  max-width: 400px;
+  word-break: break-word;
+}
+
+.retryButton {
+  margin-top: 8px;
+}
+

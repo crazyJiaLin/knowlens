@@ -162,7 +162,7 @@ export default function VideoDocument() {
 
         if (bvid) {
           // 直接更新 URL，包含 t 参数
-          const newUrl = `https://player.bilibili.com/player.html?isOutside=true&bvid=${bvid}&t=${seekTime.toFixed(1)}&autoplay=1&muted=0`;
+          const newUrl = `https://player.bilibili.com/player.html?isOutside=true&bvid=${bvid}&t=${seekTime.toFixed(1)}&autoplay=0`;
           console.log('跳转 B站视频 - 原始时间:', seconds, '计算后的 seekTime:', seekTime);
           console.log('更新 URL:', newUrl);
           setEmbedUrl(newUrl);
