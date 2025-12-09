@@ -13,6 +13,7 @@ export class MoonshotService {
   private readonly timeout: number;
   private readonly maxRetries: number;
   private readonly retryDelay: number;
+  private readonly maxTokens: number;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('MOONSHOT_API_KEY');
@@ -21,11 +22,13 @@ export class MoonshotService {
       'https://api.moonshot.cn/v1';
 
     // 配置超时和重试策略
-    this.timeout = this.configService.get<number>('MOONSHOT_TIMEOUT') || 60000; // 默认60秒
+    this.timeout = this.configService.get<number>('MOONSHOT_TIMEOUT') || 10000; // 默认10秒
     this.maxRetries =
       this.configService.get<number>('MOONSHOT_MAX_RETRIES') || 2; // 默认重试2次
     this.retryDelay =
       this.configService.get<number>('MOONSHOT_RETRY_DELAY') || 1000; // 默认延迟1秒
+    this.maxTokens =
+      this.configService.get<number>('MOONSHOT_MAX_TOKENS') || 6000; // 默认6000 tokens
 
     if (apiKey) {
       this.client = new OpenAI({
@@ -34,7 +37,7 @@ export class MoonshotService {
         maxRetries: 0, // 禁用 SDK 内置重试，使用自定义重试逻辑
       });
       this.logger.log(
-        `Moonshot AI 客户端初始化成功 (timeout: ${this.timeout}ms, maxRetries: ${this.maxRetries})`,
+        `Moonshot AI 客户端初始化成功 (timeout: ${this.timeout}ms, maxRetries: ${this.maxRetries}, maxTokens: ${this.maxTokens})`,
       );
     } else {
       this.logger.warn('Moonshot API Key 未配置，知识点提炼功能将不可用');
@@ -93,13 +96,30 @@ export class MoonshotService {
     }
 
     const maxPoints = options?.maxPoints || 8;
-    this.logger.log(
-      `开始提炼知识点，内容长度: ${contentText.length} 字符，最大知识点数: ${maxPoints}`,
+
+    // 检查并截断内容以适应 token 限制
+    const { truncatedText, truncatedSegments } = this.truncateContentForTokens(
+      contentText,
+      segments,
+      this.maxTokens,
     );
 
-    // 构建分段信息文本，用于定位
+    const originalTokenCount = this.estimateTokens(contentText);
+    const truncatedTokenCount = this.estimateTokens(truncatedText);
+
+    if (truncatedTokenCount < originalTokenCount) {
+      this.logger.warn(
+        `内容过长，已截断：原始 ${originalTokenCount} tokens，截断后 ${truncatedTokenCount} tokens（${truncatedSegments.length}/${segments.length} 个片段）`,
+      );
+    }
+
+    this.logger.log(
+      `开始提炼知识点，内容长度: ${truncatedText.length} 字符（${truncatedTokenCount} tokens），最大知识点数: ${maxPoints}`,
+    );
+
+    // 构建分段信息文本，用于定位（使用截断后的片段）
     // 格式：segmentId: [时间段] 文本内容
-    const segmentsText = segments
+    const segmentsText = truncatedSegments
       .map((seg, index) => {
         const segmentId = seg.segmentId || `segment_${index}`;
         const timeInfo =
@@ -149,7 +169,7 @@ export class MoonshotService {
     }
 
     userPrompt += `\n\n内容：
-${contentText}
+${truncatedText}
 
 分段信息（用于定位）：
 ${segmentsText}
@@ -254,7 +274,9 @@ ${segmentsText}
     const response = await Promise.race([
       requestPromise,
       timeoutPromise.then(() => {
-        throw new Error(`请求超时（${this.timeout}ms）`);
+        throw new Error(
+          `大模型请求超时（${this.timeout / 1000}秒），请稍后重试`,
+        );
       }),
     ]);
 
@@ -379,6 +401,118 @@ ${segmentsText}
   }
 
   /**
+   * 估算文本的 token 数量
+   * 中文大约 1 token = 1.5 字符，英文大约 1 token = 0.75 字符
+   * 这里使用保守估算：1 token = 1 字符（中文为主）
+   */
+  private estimateTokens(text: string): number {
+    // 简单估算：中文字符数 + 英文单词数 * 0.75
+    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+    // 保守估算，加上标点和其他字符
+    return Math.ceil(
+      chineseChars * 1.5 + englishWords * 0.75 + text.length * 0.1,
+    );
+  }
+
+  /**
+   * 截断内容以适应 token 限制
+   * @param contentText 原始内容
+   * @param segments 分段信息
+   * @param maxTokens 最大 token 数（留出空间给 prompt）
+   * @returns 截断后的内容和分段
+   */
+  private truncateContentForTokens(
+    contentText: string,
+    segments: Array<{
+      text: string;
+      start?: number;
+      end?: number;
+      segmentId?: string;
+    }>,
+    maxTokens: number,
+  ): {
+    truncatedText: string;
+    truncatedSegments: Array<{
+      text: string;
+      start?: number;
+      end?: number;
+      segmentId?: string;
+    }>;
+  } {
+    // 估算 prompt 的 token 数（大约 500 tokens）
+    const promptTokens = 500;
+    const availableTokens = maxTokens - promptTokens;
+
+    // 如果内容足够短，直接返回
+    const contentTokens = this.estimateTokens(contentText);
+    if (contentTokens <= availableTokens) {
+      return { truncatedText: contentText, truncatedSegments: segments };
+    }
+
+    // 需要截断：从前往后取片段，直到接近 token 限制
+    let accumulatedTokens = 0;
+    const truncatedSegments: Array<{
+      text: string;
+      start?: number;
+      end?: number;
+      segmentId?: string;
+    }> = [];
+    const truncatedTexts: string[] = [];
+
+    for (const segment of segments) {
+      const segmentTokens = this.estimateTokens(segment.text);
+      if (accumulatedTokens + segmentTokens > availableTokens) {
+        // 如果加上这个片段会超限，尝试截断这个片段
+        const remainingTokens = availableTokens - accumulatedTokens;
+        if (remainingTokens > 100) {
+          // 如果还有足够空间，截断这个片段
+          const truncatedSegment = {
+            ...segment,
+            text: this.truncateTextByTokens(segment.text, remainingTokens),
+          };
+          truncatedSegments.push(truncatedSegment);
+          truncatedTexts.push(truncatedSegment.text);
+        }
+        break;
+      }
+      truncatedSegments.push(segment);
+      truncatedTexts.push(segment.text);
+      accumulatedTokens += segmentTokens;
+    }
+
+    return {
+      truncatedText: truncatedTexts.join('\n'),
+      truncatedSegments,
+    };
+  }
+
+  /**
+   * 按 token 数量截断文本
+   */
+  private truncateTextByTokens(text: string, maxTokens: number): string {
+    // 简单实现：按字符数截断（保守估算）
+    const maxChars = Math.floor(maxTokens / 1.5); // 保守估算
+    if (text.length <= maxChars) {
+      return text;
+    }
+    // 截断到最后一个完整句子
+    const truncated = text.substring(0, maxChars);
+    const lastPeriod = Math.max(
+      truncated.lastIndexOf('。'),
+      truncated.lastIndexOf('.'),
+      truncated.lastIndexOf('！'),
+      truncated.lastIndexOf('!'),
+      truncated.lastIndexOf('？'),
+      truncated.lastIndexOf('?'),
+    );
+    if (lastPeriod > maxChars * 0.8) {
+      return truncated.substring(0, lastPeriod + 1);
+    }
+    return truncated + '...';
+  }
+
+  /**
    * 生成知识点的深度洞察
    * - 基于知识点内容和完整原文生成三段式洞察
    * - 包含逻辑演绎、隐含信息、延伸思考
@@ -407,6 +541,22 @@ ${segmentsText}
     }
 
     this.logger.log(`开始生成洞察，主题: ${topic}`);
+
+    // 检查并截断内容以适应 token 限制
+    const estimatedTokens = this.estimateTokens(allSegmentsText);
+    let segmentsTextToUse = allSegmentsText;
+
+    if (estimatedTokens > this.maxTokens) {
+      // 如果内容太长，截断
+      const truncated = this.truncateTextByTokens(
+        allSegmentsText,
+        this.maxTokens,
+      );
+      segmentsTextToUse = truncated;
+      this.logger.warn(
+        `洞察生成：内容过长，已截断（原始 ${estimatedTokens} tokens，截断后 ${this.estimateTokens(truncated)} tokens）`,
+      );
+    }
 
     // 构建 System Prompt
     const systemPrompt = `你是一个深度思考专家，擅长从知识点中挖掘深层逻辑、隐含信息和延伸思考。
@@ -460,7 +610,7 @@ ${excerpt}
         const result = await this.generateInsightWithRetry(
           systemPrompt,
           userPrompt,
-          allSegmentsText,
+          segmentsTextToUse,
         );
         this.logger.log('洞察生成完成');
         return result;
@@ -549,6 +699,19 @@ ${excerpt}
     const model =
       this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
 
+    // 检查并截断内容以适应 token 限制
+    const estimatedTokens = this.estimateTokens(allSegmentsText);
+    let segmentsTextToUse = allSegmentsText;
+
+    if (estimatedTokens > 6000) {
+      // 如果内容太长，截断
+      const truncated = this.truncateTextByTokens(allSegmentsText, 6000);
+      segmentsTextToUse = truncated;
+      this.logger.warn(
+        `洞察生成（流式）：内容过长，已截断（原始 ${estimatedTokens} tokens，截断后 ${this.estimateTokens(truncated)} tokens）`,
+      );
+    }
+
     // 创建流式请求
     const stream = await this.client.chat.completions.create({
       model,
@@ -559,9 +722,9 @@ ${excerpt}
         },
         {
           role: 'assistant',
-          content: `以下是完整的原文内容，包含所有片段：
+          content: `以下是相关的原文内容，包含相关片段：
 
-${allSegmentsText}
+${segmentsTextToUse}
 
 请基于这些原文内容回答用户的问题。`,
         },
@@ -586,66 +749,83 @@ ${allSegmentsText}
       extensionOptional: '',
     };
 
-    // 处理流式数据
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        buffer += content;
+    // 创建流式处理的超时控制
+    const streamProcessingPromise = (async () => {
+      // 处理流式数据
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          buffer += content;
 
-        // 尝试解析 JSON（可能是不完整的）
-        try {
-          // 尝试找到完整的 JSON 对象
-          const jsonMatch = buffer.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const jsonStr = jsonMatch[0];
-            const parsed = JSON.parse(jsonStr) as {
-              logic?: string;
-              hiddenInfo?: string;
-              extensionOptional?: string;
-            };
+          // 尝试解析 JSON（可能是不完整的）
+          try {
+            // 尝试找到完整的 JSON 对象
+            const jsonMatch = buffer.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const jsonStr = jsonMatch[0];
+              const parsed = JSON.parse(jsonStr) as {
+                logic?: string;
+                hiddenInfo?: string;
+                extensionOptional?: string;
+              };
 
-            // 更新结果并发送增量更新
-            if (parsed.logic && parsed.logic !== result.logic) {
-              result.logic = parsed.logic;
-              onChunk({ logic: parsed.logic });
+              // 更新结果并发送增量更新
+              if (parsed.logic && parsed.logic !== result.logic) {
+                result.logic = parsed.logic;
+                onChunk({ logic: parsed.logic });
+              }
+              if (
+                parsed.hiddenInfo &&
+                parsed.hiddenInfo !== result.hiddenInfo
+              ) {
+                result.hiddenInfo = parsed.hiddenInfo;
+                onChunk({ hiddenInfo: parsed.hiddenInfo });
+              }
+              if (
+                parsed.extensionOptional &&
+                parsed.extensionOptional !== result.extensionOptional
+              ) {
+                result.extensionOptional = parsed.extensionOptional;
+                onChunk({ extensionOptional: parsed.extensionOptional });
+              }
             }
-            if (parsed.hiddenInfo && parsed.hiddenInfo !== result.hiddenInfo) {
-              result.hiddenInfo = parsed.hiddenInfo;
-              onChunk({ hiddenInfo: parsed.hiddenInfo });
-            }
-            if (
-              parsed.extensionOptional &&
-              parsed.extensionOptional !== result.extensionOptional
-            ) {
-              result.extensionOptional = parsed.extensionOptional;
-              onChunk({ extensionOptional: parsed.extensionOptional });
-            }
+          } catch {
+            // JSON 还不完整，继续等待
           }
-        } catch {
-          // JSON 还不完整，继续等待
         }
       }
-    }
 
-    // 最终解析完整的 JSON
-    try {
-      const jsonMatch = buffer.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const jsonStr = jsonMatch[0];
-        const parsed = JSON.parse(jsonStr) as {
-          logic?: string;
-          hiddenInfo?: string;
-          extensionOptional?: string;
-        };
-        result.logic = parsed.logic || result.logic;
-        result.hiddenInfo = parsed.hiddenInfo || result.hiddenInfo;
-        result.extensionOptional =
-          parsed.extensionOptional || result.extensionOptional;
+      // 最终解析完整的 JSON
+      try {
+        const jsonMatch = buffer.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonStr = jsonMatch[0];
+          const parsed = JSON.parse(jsonStr) as {
+            logic?: string;
+            hiddenInfo?: string;
+            extensionOptional?: string;
+          };
+          result.logic = parsed.logic || result.logic;
+          result.hiddenInfo = parsed.hiddenInfo || result.hiddenInfo;
+          result.extensionOptional =
+            parsed.extensionOptional || result.extensionOptional;
+        }
+      } catch (error) {
+        this.logger.error('解析流式 JSON 失败:', error);
+        throw new Error('解析洞察结果失败');
       }
-    } catch (error) {
-      this.logger.error('解析流式 JSON 失败:', error);
-      throw new Error('解析洞察结果失败');
-    }
+    })();
+
+    // 等待流式处理完成，同时监控超时
+    const streamTimeoutPromise = this.createTimeoutPromise(this.timeout);
+    await Promise.race([
+      streamProcessingPromise,
+      streamTimeoutPromise.then(() => {
+        throw new Error(
+          `大模型请求超时（${this.timeout / 1000}秒），请稍后重试`,
+        );
+      }),
+    ]);
 
     this.logger.log('流式洞察生成完成');
   }
@@ -684,7 +864,7 @@ ${allSegmentsText}
         },
         {
           role: 'assistant',
-          content: `以下是完整的原文内容，包含所有片段：
+          content: `以下是相关的原文内容，包含相关片段：
 
 ${allSegmentsText}
 
@@ -704,7 +884,9 @@ ${allSegmentsText}
     const response = await Promise.race([
       requestPromise,
       timeoutPromise.then(() => {
-        throw new Error(`请求超时（${this.timeout}ms）`);
+        throw new Error(
+          `大模型请求超时（${this.timeout / 1000}秒），请稍后重试`,
+        );
       }),
     ]);
 

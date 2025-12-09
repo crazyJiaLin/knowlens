@@ -11,6 +11,7 @@ interface KnowledgeCardProps {
   documentId: string;
   documentStatus?: 'processing' | 'completed' | 'failed';
   segments?: Segment[];
+  progress?: number;
   onJumpToTime?: (seconds: number) => void;
   onHighlightSegment?: (segmentIndex: number) => void;
   highlightedKnowledgePointId?: string | null;
@@ -20,6 +21,7 @@ export default function KnowledgeCard({
   documentId,
   documentStatus,
   segments = [],
+  progress = 0,
   onJumpToTime,
   onHighlightSegment,
   highlightedKnowledgePointId,
@@ -64,12 +66,16 @@ export default function KnowledgeCard({
 
   // 如果文档还在处理中，显示等待状态
   if (documentStatus !== 'completed') {
+    // 如果进度 >= 70%，说明原文已处理完成，正在生成知识点
+    const waitingText =
+      progress >= 70 ? '正在生成知识点...' : '等待原文处理完成...';
+    
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
         <div>
           <Skeleton active paragraph={{ rows: 6 }} />
           <div className={styles.knowledgeLoadingContainer}>
-            <Text type="secondary">等待原文处理完成...</Text>
+            <Text type="secondary">{waitingText}</Text>
           </div>
         </div>
       </Card>
@@ -96,11 +102,21 @@ export default function KnowledgeCard({
     );
   }
 
-  // 如果没有知识点，显示空状态
+  // 如果没有知识点，显示空状态或错误提示
   if (knowledgePoints.length === 0) {
+    // 检查是否是生成失败（文档已完成但无知识点）
+    const isGenerationFailed =
+      documentStatus === 'completed' && !isLoading && !error;
+    
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
-        <Empty description="知识点生成中，请稍候..." />
+        <Empty
+          description={
+            isGenerationFailed
+              ? '知识点生成失败，可能是内容过长导致。请尝试重新生成或联系管理员。'
+              : '知识点生成中，请稍候...'
+          }
+        />
       </Card>
     );
   }

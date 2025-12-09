@@ -84,9 +84,10 @@ export default function VideoDocument() {
   }, [document, progress, status?.status]);
 
   const showSegments = useMemo(() => {
-    // 原文在进度 >= 80% 或已完成时显示
-    return progress >= 80 || status?.status === 'completed';
-  }, [progress, status?.status]);
+    // 原文在进度 >= 70% 或已完成时显示（片段在70%时已保存到数据库）
+    // 或者如果已经有片段数据，直接显示
+    return progress >= 70 || status?.status === 'completed' || segments.length > 0;
+  }, [progress, status?.status, segments.length]);
 
   // 如果文档处理失败，显示错误信息
   if (document?.status === 'failed') {
@@ -150,7 +151,7 @@ export default function VideoDocument() {
         // B站: 直接修改 iframe 的 src URL，通过 t 参数精确跳转
         // 参考: https://www.bilibili.com/video/BV1MApqzxEFD?t=17.8
         // 提前 2 秒开始播放，给用户一些上下文
-        const seekTime = Math.max(0, seconds - 2);
+        const seekTime = Math.max(0.1, seconds - 2); // 传0不会跳转
         const { videoId } = document.video;
 
         if (!videoId) {
@@ -162,7 +163,7 @@ export default function VideoDocument() {
 
         if (bvid) {
           // 直接更新 URL，包含 t 参数
-          const newUrl = `https://player.bilibili.com/player.html?isOutside=true&bvid=${bvid}&t=${seekTime.toFixed(1)}&autoplay=0`;
+          const newUrl = `https://player.bilibili.com/player.html?isOutside=true&bvid=${bvid}&t=${seekTime.toFixed(2)}&autoplay=0`;
           console.log('跳转 B站视频 - 原始时间:', seconds, '计算后的 seekTime:', seekTime);
           console.log('更新 URL:', newUrl);
           setEmbedUrl(newUrl);
@@ -344,6 +345,7 @@ export default function VideoDocument() {
             documentId={id || ''}
             documentStatus={status?.status || document?.status}
             segments={segments}
+            progress={progress}
             onJumpToTime={jumpToTime}
             onHighlightSegment={(segmentIndex) => {
               console.log('onHighlightSegment', segmentIndex);

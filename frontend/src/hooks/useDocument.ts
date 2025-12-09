@@ -97,12 +97,18 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
     }
   }, [documentId, enabled]);
 
-  // 如果文档已完成，加载片段
+  // 当进度 >= 70% 或文档已完成时，加载片段（片段在70%时已保存到数据库）
   useEffect(() => {
-    if (document?.status === 'completed' && segments.length === 0) {
+    if (
+      documentId &&
+      enabled &&
+      segments.length === 0 &&
+      (progress >= 70 || document?.status === 'completed')
+    ) {
       void loadSegments();
     }
-  }, [document?.status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentId, enabled, progress, document?.status]);
 
   // 自动轮询状态（如果文档正在处理中）
   useEffect(() => {

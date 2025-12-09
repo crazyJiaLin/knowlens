@@ -94,6 +94,11 @@ export const generateInsightStream = async (
           try {
             const parsed = JSON.parse(data);
             
+            // 检查是否有错误
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+            
             // 更新结果
             if (parsed.logic !== undefined) {
               result.logic = parsed.logic;
@@ -108,6 +113,9 @@ export const generateInsightStream = async (
             // 调用回调函数
             onChunk({ ...result });
           } catch (e) {
+            if (e instanceof Error) {
+              throw e; // 重新抛出错误，让上层处理
+            }
             console.warn('解析流式数据失败:', e, data);
           }
         }
@@ -116,20 +124,29 @@ export const generateInsightStream = async (
 
     // 处理剩余的 buffer
     if (buffer.trim()) {
-      if (buffer.startsWith('data: ')) {
-        const data = buffer.slice(6);
-        if (data !== '[DONE]') {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.logic !== undefined) result.logic = parsed.logic;
-            if (parsed.hiddenInfo !== undefined) result.hiddenInfo = parsed.hiddenInfo;
-            if (parsed.extensionOptional !== undefined) result.extensionOptional = parsed.extensionOptional;
-            onChunk({ ...result });
-          } catch (e) {
-            console.warn('解析流式数据失败:', e);
+        if (buffer.startsWith('data: ')) {
+          const data = buffer.slice(6);
+          if (data !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(data);
+              
+              // 检查是否有错误
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+              
+              if (parsed.logic !== undefined) result.logic = parsed.logic;
+              if (parsed.hiddenInfo !== undefined) result.hiddenInfo = parsed.hiddenInfo;
+              if (parsed.extensionOptional !== undefined) result.extensionOptional = parsed.extensionOptional;
+              onChunk({ ...result });
+            } catch (e) {
+              if (e instanceof Error) {
+                throw e; // 重新抛出错误，让上层处理
+              }
+              console.warn('解析流式数据失败:', e);
+            }
           }
         }
-      }
     }
   } finally {
     reader.releaseLock();
