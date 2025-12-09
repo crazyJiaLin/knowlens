@@ -4,6 +4,7 @@ import Home from '../pages/Home';
 import UserSetting from '../pages/UserSetting';
 import VideoDocument from '../pages/Document/VideoDocument';
 import BilibiliCookieManage from '../pages/BilibiliCookieManage';
+import Records from '../pages/Records';
 
 export const router = createBrowserRouter([
   {
@@ -20,7 +21,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'records',
-        element: <div>我的记录（待实现）</div>,
+        element: <Records />,
       },
       {
         path: 'document/:id',

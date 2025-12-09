@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Query,
+  Delete,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -97,6 +98,7 @@ export class DocumentController {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             const jobProgress = (job as any).progress;
             // 如果 progress 是 Promise，需要 await
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const progressValue =
               jobProgress instanceof Promise ? await jobProgress : jobProgress;
 
@@ -133,5 +135,22 @@ export class DocumentController {
     }
 
     return status;
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '删除文档' })
+  @ApiResponse({ status: 200, description: '删除成功' })
+  @ApiResponse({ status: 401, description: '未登录' })
+  @ApiResponse({ status: 404, description: '文档不存在' })
+  async deleteDocument(
+    @Param('id') documentId: string,
+    @User('id') userId: string,
+  ) {
+    await this.documentService.deleteDocument(documentId, userId);
+    return {
+      success: true,
+      message: '文档删除成功',
+    };
   }
 }

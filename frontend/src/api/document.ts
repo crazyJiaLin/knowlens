@@ -96,3 +96,10 @@ export const getDocumentStatus = async (documentId: string): Promise<DocumentSta
 export const getDocumentSegments = async (documentId: string): Promise<Segment[]> => {
   return request.get(`/document/${documentId}/segments`);
 };
+
+/**
+ * 删除文档
+ */
+export const deleteDocument = async (documentId: string): Promise<{ success: boolean; message: string }> => {
+  return request.delete(`/document/${documentId}`);
+};
