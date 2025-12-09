@@ -22,7 +22,14 @@ import {
   FilePdfOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
-import { getDocumentList, deleteDocument, getDocumentStatus, type Document, type QueryDocumentParams, type DocumentStatus } from '@/api/document';
+import {
+  getDocumentList,
+  deleteDocument,
+  getDocumentStatus,
+  type Document,
+  type QueryDocumentParams,
+  type DocumentStatus,
+} from '@/api/document';
 import dayjs from 'dayjs';
 import styles from './index.module.css';
 
@@ -45,45 +52,50 @@ export default function Records() {
   const pageSize = 20;
   const [keyword, setKeyword] = useState('');
   const [sourceType, setSourceType] = useState<'video' | 'pdf' | 'text' | undefined>(undefined);
-  const [status, setStatus] = useState<'processing' | 'completed' | 'failed' | undefined>(undefined);
+  const [status, setStatus] = useState<'processing' | 'completed' | 'failed' | undefined>(
+    undefined
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
   const pollingIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   // 加载文档列表（追加模式）
-  const loadDocuments = useCallback(async (pageNum: number, append = false) => {
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
-    
-    try {
-      const params: QueryDocumentParams = {
-        page: pageNum,
-        pageSize,
-        keyword: keyword || undefined,
-        sourceType,
-        status,
-      };
-      const response = await getDocumentList(params);
-      
+  const loadDocuments = useCallback(
+    async (pageNum: number, append = false) => {
       if (append) {
-        setDocuments((prev) => [...prev, ...response.items]);
+        setLoadingMore(true);
       } else {
-        setDocuments(response.items);
+        setLoading(true);
       }
-      
-      // 判断是否还有更多数据
-      setHasMore(response.items.length === pageSize && response.items.length > 0);
-    } catch (error) {
-      console.error('加载文档列表失败:', error);
-      message.error('加载文档列表失败，请稍后重试');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [keyword, sourceType, status, pageSize]);
+
+      try {
+        const params: QueryDocumentParams = {
+          page: pageNum,
+          pageSize,
+          keyword: keyword || undefined,
+          sourceType,
+          status,
+        };
+        const response = await getDocumentList(params);
+
+        if (append) {
+          setDocuments((prev) => [...prev, ...response.items]);
+        } else {
+          setDocuments(response.items);
+        }
+
+        // 判断是否还有更多数据
+        setHasMore(response.items.length === pageSize && response.items.length > 0);
+      } catch (error) {
+        console.error('加载文档列表失败:', error);
+        message.error('加载文档列表失败，请稍后重试');
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [keyword, sourceType, status, pageSize]
+  );
 
   // 初始加载和筛选条件变化时重新加载
   useEffect(() => {
@@ -122,7 +134,7 @@ export default function Records() {
   useEffect(() => {
     const processingDocs = documents.filter((doc) => doc.status === 'processing');
     const intervalsMap = pollingIntervalsRef.current;
-    
+
     // 清理不再需要轮询的文档
     intervalsMap.forEach((interval, docId) => {
       if (!processingDocs.find((doc) => doc.id === docId)) {
@@ -306,55 +318,53 @@ export default function Records() {
               {documents.map((doc) => (
                 <Card
                   key={doc.id}
-                  className={styles.documentCard}
+                  className={`${styles.documentCard} ${styles[`documentCard${doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}`]}`}
                   hoverable
                   onClick={() => handleClickDocument(doc.id)}
                 >
+                  {/* 右上角删除按钮（hover显示） */}
+                  <div className={styles.deleteButtonWrapper}>
+                    <Popconfirm
+                      title="确定要删除这条记录吗？"
+                      description="删除后将无法恢复，相关知识点和洞察也会被删除"
+                      onConfirm={(e?: React.MouseEvent) => {
+                        if (e) {
+                          e.stopPropagation();
+                        }
+                        handleDelete(doc.id);
+                      }}
+                      onCancel={(e?: React.MouseEvent) => {
+                        if (e) {
+                          e.stopPropagation();
+                        }
+                      }}
+                      okText="确定"
+                      cancelText="取消"
+                    >
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        className={styles.deleteButton}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Popconfirm>
+                  </div>
                   <div className={styles.cardWrapper}>
-                    {/* 右上角删除按钮（hover显示） */}
-                    <div className={styles.deleteButtonWrapper}>
-                      <Popconfirm
-                        title="确定要删除这条记录吗？"
-                        description="删除后将无法恢复，相关知识点和洞察也会被删除"
-                        onConfirm={(e?: React.MouseEvent) => {
-                          if (e) {
-                            e.stopPropagation();
-                          }
-                          handleDelete(doc.id);
-                        }}
-                        onCancel={(e?: React.MouseEvent) => {
-                          if (e) {
-                            e.stopPropagation();
-                          }
-                        }}
-                        okText="确定"
-                        cancelText="取消"
-                      >
-                        <Button
-                          type="text"
-                          danger
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          className={styles.deleteButton}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </Popconfirm>
-                    </div>
-
                     <div className={styles.cardHeader}>
-                      <div className={styles.cardIcon}>
-                        {getSourceTypeIcon(doc.sourceType)}
-                      </div>
+                      <div className={styles.cardIcon}>{getSourceTypeIcon(doc.sourceType)}</div>
                       <div className={styles.cardTitle}>
-                        <Text 
-                          strong 
-                          ellipsis 
-                          style={{ 
-                            width: '100%', 
+                        <Text
+                          strong
+                          ellipsis
+                          className={styles.cardTitleText}
+                          style={{
+                            width: '100%',
                             display: 'block',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
                           }}
                           title={doc.title || '未命名文档'}
                         >
@@ -362,7 +372,11 @@ export default function Records() {
                         </Text>
                         <Space style={{ marginTop: 8 }} wrap>
                           <Tag color={getSourceTypeColor(doc.sourceType)}>
-                            {doc.sourceType === 'video' ? '视频' : doc.sourceType === 'pdf' ? 'PDF' : '文本'}
+                            {doc.sourceType === 'video'
+                              ? '视频'
+                              : doc.sourceType === 'pdf'
+                                ? 'PDF'
+                                : '文本'}
                           </Tag>
                           {getStatusTag(doc.status)}
                         </Space>
@@ -370,16 +384,16 @@ export default function Records() {
                     </div>
                     <div className={styles.cardContent}>
                       {doc.originalUrl && (
-                        <Text 
-                          type="secondary" 
-                          ellipsis 
-                          style={{ 
-                            display: 'block', 
+                        <Text
+                          type="secondary"
+                          ellipsis
+                          style={{
+                            display: 'block',
                             marginBottom: 12,
                             width: '100%',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
                           }}
                           title={doc.originalUrl}
                         >
@@ -389,14 +403,12 @@ export default function Records() {
                       {/* 进度条（仅处理中时显示） */}
                       {doc.status === 'processing' && doc.progress !== undefined && (
                         <div style={{ marginBottom: 12 }}>
-                          <Progress
-                            percent={doc.progress}
-                            size="small"
-                            status="active"
-                            showInfo
-                          />
+                          <Progress percent={doc.progress} size="small" status="active" showInfo />
                           {doc.progressMessage && (
-                            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                            <Text
+                              type="secondary"
+                              style={{ fontSize: 11, display: 'block', marginTop: 4 }}
+                            >
                               {doc.progressMessage}
                             </Text>
                           )}
@@ -414,7 +426,8 @@ export default function Records() {
                           )}
                           {doc.video?.duration && (
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                              时长: {Math.floor(doc.video.duration / 60)}分{Math.floor(doc.video.duration % 60)}秒
+                              时长: {Math.floor(doc.video.duration / 60)}分
+                              {Math.floor(doc.video.duration % 60)}秒
                             </Text>
                           )}
                           {doc.pdf?.pageCount && (
@@ -428,7 +441,7 @@ export default function Records() {
                   </div>
                 </Card>
               ))}
-              
+
               {/* 无限滚动观察目标 */}
               <div ref={observerTarget} className={styles.observerTarget}>
                 {loadingMore && (
@@ -452,4 +465,3 @@ export default function Records() {
     </div>
   );
 }
-

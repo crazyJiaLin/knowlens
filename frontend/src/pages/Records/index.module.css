@@ -42,11 +42,53 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  border: 1px solid var(--color-border, #e0e0e0);
 }
 
 .documentCard:hover {
   transform: translateY(-4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 处理中状态 - 蓝色主题 */
+.documentCardProcessing {
+  border-color: #1890ff;
+  background: linear-gradient(to bottom, rgba(24, 144, 255, 0.03), transparent);
+}
+
+.documentCardProcessing:hover {
+  border-color: #1890ff;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.25);
+}
+
+.documentCardProcessing .cardTitleText {
+  color: #1890ff !important;
+}
+
+/* 已完成状态 - 绿色主题 */
+.documentCardCompleted {
+  border-color: var(--color-success, #52c41a);
+  background: linear-gradient(to bottom, rgba(82, 196, 26, 0.03), transparent);
+}
+
+.documentCardCompleted:hover {
+  border-color: var(--color-success, #52c41a);
+  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.25);
+}
+
+/* 失败状态 - 红色主题 */
+.documentCardFailed {
+  border-color: var(--color-error, #ff4d4f);
+  background: linear-gradient(to bottom, rgba(255, 77, 79, 0.03), transparent);
+}
+
+.documentCardFailed:hover {
+  border-color: var(--color-error, #ff4d4f);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.25);
+}
+
+.documentCardFailed .cardTitleText {
+  color: var(--color-error, #ff4d4f) !important;
 }
 
 .cardWrapper {
@@ -107,6 +149,10 @@
   min-width: 0;
   width: 0; /* 强制flex子元素收缩 */
   overflow: hidden;
+}
+
+.cardTitleText {
+  transition: color 0.3s;
 }
 
 .cardContent {
