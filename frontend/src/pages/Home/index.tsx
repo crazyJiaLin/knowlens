@@ -103,7 +103,7 @@ export default function Home() {
             color: 'var(--color-text-primary)',
           }}
         >
-          KNOWLENS
+          KnowLens
         </h1>
         <p
           style={{

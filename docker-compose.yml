@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Redis 服务（如果使用本地 Redis）
+  redis:
+    image: redis:7-alpine
+    container_name: knowlens-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - knowlens-network
+
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: knowlens-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - ./backend/.env.production
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend/temp:/app/temp
+      - ./backend/uploadFile:/app/uploadFile
+    depends_on:
+      - redis
+    networks:
+      - knowlens-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: knowlens-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - knowlens-network
+
+volumes:
+  redis-data:
+
+networks:
+  knowlens-network:
+    driver: bridge
+

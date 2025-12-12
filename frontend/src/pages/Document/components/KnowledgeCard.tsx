@@ -177,21 +177,21 @@ export default function KnowledgeCard({
 
           return (
             <div key={point.id} className={styles.knowledgePointItem}>
-              <div
-                className={`${styles.knowledgePointCard} ${
-                  isHighlighted ? styles.knowledgePointCardHighlighted : ''
+            <div
+              className={`${styles.knowledgePointCard} ${
+                isHighlighted ? styles.knowledgePointCardHighlighted : ''
                 } ${isExpanded ? styles.knowledgePointCardExpanded : ''}`}
-              >
-                <div className={styles.knowledgePointHeader}>
-                  <Title level={5} className={styles.knowledgePointTopic}>
-                    {point.topic}
-                  </Title>
-                </div>
+            >
+              <div className={styles.knowledgePointHeader}>
+                <Title level={5} className={styles.knowledgePointTopic}>
+                  {point.topic}
+                </Title>
+                        </div>
                 <div className={styles.knowledgePointExcerptWrapper}>
                   <Text
                     className={styles.knowledgePointExcerpt}
                     onClick={() => handleExcerptClick(point)}
-                  >
+                        >
                     {point.excerpt}{' '}
                     <span className={styles.knowledgePointBadge}>
                       [{index + 1}]
@@ -213,8 +213,8 @@ export default function KnowledgeCard({
                 {isExpanded && (
                   <div className={styles.insightContentWrapper}>
                     <InsightCard knowledgePointId={point.id} />
-                  </div>
-                )}
+                </div>
+              )}
               </div>
             </div>
           );

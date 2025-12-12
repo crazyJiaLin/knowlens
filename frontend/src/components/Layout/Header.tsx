@@ -1,7 +1,7 @@
 import { Avatar, Dropdown, Button, Space } from 'antd';
 import type { MenuProps } from 'antd';
 import { UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { logout } from '@/api/auth';
 import { message } from 'antd';
@@ -10,9 +10,13 @@ import { useState, useEffect } from 'react';
 
 export default function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, logout: logoutStore } = useAuthStore();
   const { openLoginModal } = useUIStore();
   const [isScrolled, setIsScrolled] = useState(false);
+  
+  // 判断是否是首页
+  const isHomePage = location.pathname === '/';
 
   // 监听滚动事件
   useEffect(() => {
@@ -79,8 +83,30 @@ export default function Header() {
         transition: 'all 0.6s ease',
       }}
     >
-      {/* 左侧占位 */}
-      <div style={{ width: '120px' }} />
+      {/* 左侧：如果不是首页，显示 KNOWLENS 字样 */}
+      <div style={{ width: '120px' }}>
+        {!isHomePage && (
+          <span
+            onClick={() => navigate('/')}
+            style={{
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#3BAF9F',
+              cursor: 'pointer',
+              userSelect: 'none',
+              transition: 'opacity 0.3s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '0.7';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+          >
+            KnowLens
+          </span>
+        )}
+      </div>
 
       {/* 右侧操作区 */}
       <Space size="middle" style={{ width: '120px', justifyContent: 'flex-end' }}>
