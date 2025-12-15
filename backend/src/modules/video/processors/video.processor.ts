@@ -208,13 +208,11 @@ export class VideoProcessor extends WorkerHost {
 
           // 调用Moonshot API提炼知识点
           this.logger.log('开始调用Moonshot API提炼知识点');
+          // 不指定 maxPoints，让服务根据内容长度自动计算
           const knowledgePoints =
             await this.moonshotService.extractKnowledgePoints(
               contentText,
               segmentsForLLM,
-              {
-                maxPoints: 8,
-              },
             );
 
           this.logger.log(`AI提炼完成，共 ${knowledgePoints.length} 个知识点`);

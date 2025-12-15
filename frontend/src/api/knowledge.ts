@@ -94,3 +94,19 @@ export const getKnowledgePointById = async (
   return response.data;
 };
 
+/**
+ * 重新生成文档的知识点
+ */
+export const regenerateKnowledgePoints = async (
+  documentId: string
+): Promise<{ success: boolean; message: string; data: { jobId: string } }> => {
+  const response = await request.post<{
+    success: boolean;
+    message: string;
+    data: { jobId: string };
+  }>('/knowledge-points/regenerate', {
+    documentId,
+  });
+  return response;
+};
+

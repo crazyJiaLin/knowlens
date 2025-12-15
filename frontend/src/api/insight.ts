@@ -6,6 +6,8 @@ export type Insight = {
   logic: string;
   hiddenInfo: string;
   extensionOptional: string;
+  tokensUsed?: number;
+  generationTimeMs?: number;
 };
 
 export type GenerateInsightResponse = {
@@ -24,7 +26,8 @@ export type GenerateInsightResponse = {
 export const generateInsightStream = async (
   kpId: string,
   forceRegenerate: boolean,
-  onChunk: (chunk: Partial<Insight>) => void
+  onChunk: (chunk: Partial<Insight>) => void,
+  onTimeout?: () => void
 ): Promise<Insight> => {
   // 确保 kpId 是字符串类型
   if (!kpId || typeof kpId !== 'string') {
@@ -196,5 +199,33 @@ export const generateInsight = async (
   }
   
   return response as Insight;
+};
+
+/**
+ * 获取知识点的洞察（不生成，仅获取已存在的）
+ * @param kpId 知识点ID
+ */
+export const getInsight = async (kpId: string): Promise<Insight | null> => {
+  if (!kpId || typeof kpId !== 'string') {
+    throw new Error('知识点ID无效');
+  }
+
+  try {
+    const response = await request.get<{ success: boolean; data: Insight }>(
+      `/insight/${kpId}`
+    );
+    
+    if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
+      return (response as { success: boolean; data: Insight }).data;
+    }
+    
+    return response as Insight;
+  } catch (error) {
+    // 如果洞察不存在，返回 null
+    if (error instanceof Error && error.message.includes('404')) {
+      return null;
+    }
+    throw error;
+  }
 };
 

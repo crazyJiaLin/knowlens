@@ -14,6 +14,7 @@ export class MoonshotService {
   private readonly maxRetries: number;
   private readonly retryDelay: number;
   private readonly maxTokens: number;
+  private readonly maxKnowledgePoints: number;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('MOONSHOT_API_KEY');
@@ -22,13 +23,15 @@ export class MoonshotService {
       'https://api.moonshot.cn/v1';
 
     // 配置超时和重试策略
-    this.timeout = this.configService.get<number>('MOONSHOT_TIMEOUT') || 10000; // 默认10秒
+    this.timeout = this.configService.get<number>('MOONSHOT_TIMEOUT') || 30000; // 默认30秒
     this.maxRetries =
       this.configService.get<number>('MOONSHOT_MAX_RETRIES') || 2; // 默认重试2次
     this.retryDelay =
       this.configService.get<number>('MOONSHOT_RETRY_DELAY') || 1000; // 默认延迟1秒
     this.maxTokens =
       this.configService.get<number>('MOONSHOT_MAX_TOKENS') || 6000; // 默认6000 tokens
+    this.maxKnowledgePoints =
+      this.configService.get<number>('MOONSHOT_MAX_KNOWLEDGE_POINTS') || 15; // 默认最多15个知识点
 
     if (apiKey) {
       this.client = new OpenAI({
@@ -54,7 +57,7 @@ export class MoonshotService {
 
   /**
    * 从内容中提炼知识点
-   * - 从完整内容中提取3-8个核心知识点
+   * - 每1000字符生成1个知识点，最多15个（可配置）
    * - 每个知识点包含主题、原文摘录、位置信息
    * - 按重要性排序
    *
@@ -95,8 +98,6 @@ export class MoonshotService {
       throw new Error('内容文本为空，无法提炼知识点');
     }
 
-    const maxPoints = options?.maxPoints || 8;
-
     // 检查并截断内容以适应 token 限制
     const { truncatedText, truncatedSegments } = this.truncateContentForTokens(
       contentText,
@@ -105,17 +106,33 @@ export class MoonshotService {
     );
 
     const originalTokenCount = this.estimateTokens(contentText);
+    const originalCharCount = contentText.length;
     const truncatedTokenCount = this.estimateTokens(truncatedText);
+    const truncatedCharCount = truncatedText.length;
+
+    // 根据原文长度动态计算知识点数量
+    // 算法：每 1000 字符生成 1 个知识点，最多 maxKnowledgePoints 个（可配置）
+    // 如果用户指定了 maxPoints，则使用用户指定的值
+    let maxPoints: number;
+    if (options?.maxPoints) {
+      maxPoints = options.maxPoints;
+    } else {
+      // 使用截断后的文本长度来计算（因为实际处理的是截断后的文本）
+      // 每1000字符生成1个知识点
+      const basePoints = Math.ceil(truncatedCharCount / 1000);
+      maxPoints = Math.min(this.maxKnowledgePoints, basePoints);
+    }
+
+    // 打印生成知识点之前的文案长度和预计生成的知识点数量
+    this.logger.log(
+      `知识点生成前信息：原文长度 ${originalCharCount} 字符（${originalTokenCount} tokens），处理后长度 ${truncatedCharCount} 字符（${truncatedTokenCount} tokens），预计生成知识点数量：${maxPoints} 个`,
+    );
 
     if (truncatedTokenCount < originalTokenCount) {
       this.logger.warn(
         `内容过长，已截断：原始 ${originalTokenCount} tokens，截断后 ${truncatedTokenCount} tokens（${truncatedSegments.length}/${segments.length} 个片段）`,
       );
     }
-
-    this.logger.log(
-      `开始提炼知识点，内容长度: ${truncatedText.length} 字符（${truncatedTokenCount} tokens），最大知识点数: ${maxPoints}`,
-    );
 
     // 构建分段信息文本，用于定位（使用截断后的片段）
     // 格式：segmentId: [时间段] 文本内容
@@ -142,10 +159,10 @@ export class MoonshotService {
 要求：
 - 知识点应该是独立的、有价值的观点或信息
 - excerpt需尽量使用原文，长度控制在50-150字
-- 知识点数量控制在3-${maxPoints}个之间`;
+- 知识点数量控制在1-${maxPoints}个之间`;
 
     // 构建 User Prompt
-    let userPrompt = `请从以下内容中提炼出3-${maxPoints}个核心知识点。
+    let userPrompt = `请从以下内容中提炼出最多${maxPoints}个核心知识点。
 
 要求：
 1. 每个知识点需包含：topic（主题）、excerpt（原文摘录或轻度改写）
@@ -531,6 +548,7 @@ ${segmentsText}
     logic: string;
     hiddenInfo: string;
     extensionOptional: string;
+    tokensUsed?: number;
   }> {
     if (!this.client) {
       throw new Error('Moonshot 服务未配置，无法生成洞察');
@@ -646,8 +664,9 @@ ${excerpt}
       logic?: string;
       hiddenInfo?: string;
       extensionOptional?: string;
+      tokensUsed?: number;
     }) => void,
-  ): Promise<void> {
+  ): Promise<{ tokensUsed?: number }> {
     if (!this.client) {
       throw new Error('Moonshot 服务未配置，无法生成洞察');
     }
@@ -748,11 +767,19 @@ ${segmentsTextToUse}
       hiddenInfo: '',
       extensionOptional: '',
     };
+    let tokensUsed: number | undefined;
 
     // 创建流式处理的超时控制
     const streamProcessingPromise = (async () => {
       // 处理流式数据
       for await (const chunk of stream) {
+        // 检查是否有 usage 信息（通常在最后一个 chunk）
+        if (chunk.usage) {
+          tokensUsed =
+            chunk.usage.total_tokens ?? chunk.usage.prompt_tokens ?? undefined;
+          this.logger.log(`流式响应中获取到 token 使用量: ${tokensUsed}`);
+        }
+
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
           buffer += content;
@@ -811,7 +838,9 @@ ${segmentsTextToUse}
             parsed.extensionOptional || result.extensionOptional;
         }
       } catch (error) {
-        this.logger.error('解析流式 JSON 失败:', error);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error('解析流式 JSON 失败:', errorMessage);
         throw new Error('解析洞察结果失败');
       }
     })();
@@ -827,7 +856,14 @@ ${segmentsTextToUse}
       }),
     ]);
 
-    this.logger.log('流式洞察生成完成');
+    // 发送最终的 tokensUsed（如果有）
+    if (tokensUsed !== undefined) {
+      onChunk({ tokensUsed });
+      this.logger.log(`流式洞察生成完成，Token 使用量: ${tokensUsed}`);
+    } else {
+      this.logger.warn('流式洞察生成完成，但未获取到 Token 使用量');
+    }
+    return { tokensUsed };
   }
 
   /**
@@ -842,6 +878,7 @@ ${segmentsTextToUse}
     logic: string;
     hiddenInfo: string;
     extensionOptional: string;
+    tokensUsed?: number;
   }> {
     if (!this.client) {
       throw new Error('Moonshot 客户端未初始化');
@@ -936,6 +973,7 @@ ${allSegmentsText}
       logic: result.logic.trim(),
       hiddenInfo: result.hiddenInfo?.trim() || '',
       extensionOptional: result.extensionOptional?.trim() || '',
+      tokensUsed,
     };
   }
 

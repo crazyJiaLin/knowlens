@@ -79,13 +79,23 @@ export class InsightService {
     const generationTimeMs = Date.now() - startTime;
 
     // 保存或更新洞察
-    const insightData = {
+    const insightData: {
+      knowledgePointId: string;
+      logic: string;
+      hiddenInfo: string;
+      extensionOptional: string;
+      generationTimeMs: number;
+      tokensUsed?: number;
+    } = {
       knowledgePointId,
       logic: insightResult.logic,
       hiddenInfo: insightResult.hiddenInfo,
       extensionOptional: insightResult.extensionOptional,
       generationTimeMs,
     };
+    if (typeof insightResult.tokensUsed === 'number') {
+      insightData.tokensUsed = insightResult.tokensUsed as number;
+    }
 
     let insight: InsightDocument;
     if (forceRegenerate) {
@@ -187,6 +197,8 @@ export class InsightService {
       logic?: string;
       hiddenInfo?: string;
       extensionOptional?: string;
+      tokensUsed?: number;
+      generationTimeMs?: number;
     }) => void,
   ): Promise<void> {
     // 检查知识点是否存在
@@ -207,6 +219,12 @@ export class InsightService {
         onChunk({ logic: existingInsight.logic });
         onChunk({ hiddenInfo: existingInsight.hiddenInfo });
         onChunk({ extensionOptional: existingInsight.extensionOptional });
+        if (existingInsight.tokensUsed) {
+          onChunk({ tokensUsed: existingInsight.tokensUsed });
+        }
+        if (existingInsight.generationTimeMs) {
+          onChunk({ generationTimeMs: existingInsight.generationTimeMs });
+        }
         return;
       }
     }
@@ -231,13 +249,14 @@ export class InsightService {
       logic: string;
       hiddenInfo: string;
       extensionOptional: string;
+      tokensUsed?: number;
     } = {
       logic: '',
       hiddenInfo: '',
       extensionOptional: '',
     };
 
-    await this.moonshotService.generateInsightStream(
+    const streamResult = await this.moonshotService.generateInsightStream(
       knowledgePoint.topic,
       knowledgePoint.excerpt,
       allSegmentsText,
@@ -245,6 +264,7 @@ export class InsightService {
         logic?: string;
         hiddenInfo?: string;
         extensionOptional?: string;
+        tokensUsed?: number;
       }) => {
         // 更新结果
         if (chunk.logic !== undefined && typeof chunk.logic === 'string') {
@@ -265,19 +285,39 @@ export class InsightService {
           insightResult.extensionOptional = chunk.extensionOptional;
           onChunk({ extensionOptional: chunk.extensionOptional });
         }
+        if (chunk.tokensUsed !== undefined) {
+          insightResult.tokensUsed = chunk.tokensUsed;
+          onChunk({ tokensUsed: chunk.tokensUsed });
+        }
       },
     );
 
     const generationTimeMs = Date.now() - startTime;
+    // 发送最终耗时
+    onChunk({ generationTimeMs });
 
     // 保存或更新洞察
-    const insightData = {
+    const insightData: {
+      knowledgePointId: string;
+      logic: string;
+      hiddenInfo: string;
+      extensionOptional: string;
+      generationTimeMs: number;
+      tokensUsed?: number;
+    } = {
       knowledgePointId,
       logic: insightResult.logic,
       hiddenInfo: insightResult.hiddenInfo,
       extensionOptional: insightResult.extensionOptional,
       generationTimeMs,
     };
+    if (typeof streamResult.tokensUsed === 'number') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      insightData.tokensUsed = streamResult.tokensUsed;
+    } else if (typeof insightResult.tokensUsed === 'number') {
+      const tokensUsedValue: number = insightResult.tokensUsed;
+      insightData.tokensUsed = tokensUsedValue;
+    }
 
     if (forceRegenerate) {
       await this.insightModel.findOneAndUpdate(

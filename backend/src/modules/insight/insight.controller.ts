@@ -1,11 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
+  NotFoundException,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -42,6 +45,37 @@ export class InsightController {
         logic: insight.logic,
         hiddenInfo: insight.hiddenInfo,
         extensionOptional: insight.extensionOptional,
+        tokensUsed: insight.tokensUsed,
+        generationTimeMs: insight.generationTimeMs,
+      },
+    };
+  }
+
+  /**
+   * 获取知识点的洞察（不生成）
+   * GET /api/insight/:kpId
+   */
+  @Get(':kpId')
+  @HttpCode(HttpStatus.OK)
+  async getInsight(@Param('kpId') kpId: string) {
+    if (!kpId) {
+      throw new BadRequestException('kpId 参数必填');
+    }
+
+    const insight = await this.insightService.getInsightByKnowledgePointId(kpId);
+
+    if (!insight) {
+      throw new NotFoundException('洞察不存在');
+    }
+
+    return {
+      success: true,
+      data: {
+        logic: insight.logic,
+        hiddenInfo: insight.hiddenInfo,
+        extensionOptional: insight.extensionOptional,
+        tokensUsed: insight.tokensUsed,
+        generationTimeMs: insight.generationTimeMs,
       },
     };
   }

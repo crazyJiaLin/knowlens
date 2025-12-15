@@ -1,11 +1,14 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
   Param,
+  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -37,6 +40,32 @@ export class KnowledgeController {
       success: true,
       data: knowledgePoints,
       count: knowledgePoints.length,
+    };
+  }
+
+  /**
+   * 重新生成文档的知识点
+   * POST /api/knowledge-points/regenerate
+   */
+  @Post('regenerate')
+  @HttpCode(HttpStatus.OK)
+  async regenerateKnowledgePoints(
+    @Body('documentId') documentId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    if (!documentId) {
+      throw new BadRequestException('documentId 参数必填');
+    }
+
+    const result = await this.knowledgeService.generateKnowledgePoints(
+      documentId,
+      userId,
+    );
+
+    return {
+      success: true,
+      message: '知识点重新生成任务已提交',
+      data: result,
     };
   }
 

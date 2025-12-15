@@ -103,12 +103,10 @@ export class KnowledgeProcessor extends WorkerHost {
 
       // 调用Moonshot API提炼知识点
       this.logger.log('开始调用Moonshot API提炼知识点');
+      // 不指定 maxPoints，让服务根据内容长度自动计算
       const knowledgePoints = await this.moonshotService.extractKnowledgePoints(
         contentText,
         segmentsForLLM,
-        {
-          maxPoints: 8,
-        },
       );
 
       this.logger.log(`AI提炼完成，共 ${knowledgePoints.length} 个知识点`);
@@ -117,6 +115,10 @@ export class KnowledgeProcessor extends WorkerHost {
         progress: 70,
         message: '正在保存知识点...',
       });
+
+      // 删除该文档的旧知识点（重新生成时）
+      await this.knowledgePointModel.deleteMany({ documentId });
+      this.logger.log(`已删除文档 ${documentId} 的旧知识点`);
 
       // 保存知识点到数据库
       const knowledgePointDocs = knowledgePoints.map((kp) => {

@@ -1,6 +1,10 @@
-import { Card, Typography, Empty, Spin, Skeleton, Button } from 'antd';
-import { useEffect, useState } from 'react';
-import { getKnowledgePoints, type KnowledgePoint } from '@/api/knowledge';
+import { Card, Typography, Empty, Spin, Skeleton, Button, message } from 'antd';
+import { useEffect, useState, useRef } from 'react';
+import {
+  getKnowledgePoints,
+  regenerateKnowledgePoints,
+  type KnowledgePoint,
+} from '@/api/knowledge';
 import type { Segment } from '@/api/document';
 import InsightCard from './InsightCard';
 import styles from './KnowledgeCard.module.css';
@@ -28,11 +32,14 @@ export default function KnowledgeCard({
 }: KnowledgeCardProps) {
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   // 使用 Set 来跟踪多个知识点的展开状态，每个知识点独立
   const [expandedInsightIds, setExpandedInsightIds] = useState<Set<string>>(
     new Set()
   );
+  // 用于存储轮询定时器，以便清理
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     // 只有在文档处理完成后才加载知识点
@@ -40,29 +47,123 @@ export default function KnowledgeCard({
       return;
     }
 
-    const loadKnowledgePoints = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const points = await getKnowledgePoints(documentId);
-        console.log('加载的知识点数据:', points);
-        // 确保每个知识点都有 id 字段
-        const transformedPoints = points.map((point) => ({
-          ...point,
-          id: point.id || (point as { _id?: { toString: () => string } })._id?.toString() || '',
-        }));
-        console.log('转换后的知识点数据:', transformedPoints);
-        setKnowledgePoints(transformedPoints);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('加载知识点失败'));
-        console.error('加载知识点失败:', err);
-      } finally {
-        setIsLoading(false);
+    void loadKnowledgePoints();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentId, documentStatus]);
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
+  }, []);
 
-    loadKnowledgePoints();
-  }, [documentId, documentStatus]);
+  /**
+   * 重新生成知识点
+   */
+  const handleRegenerate = async () => {
+    if (!documentId) {
+      message.error('文档ID无效');
+      return;
+    }
+
+    setIsRegenerating(true);
+    setError(null);
+    setKnowledgePoints([]);
+
+    try {
+      await regenerateKnowledgePoints(documentId);
+      message.success('知识点重新生成任务已提交，请稍候...');
+      
+      // 等待一段时间后重新加载知识点
+      // 由于是异步任务，需要轮询检查
+      // 先清理之前的轮询
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+
+      let checkCount = 0;
+      const maxChecks = 30; // 最多检查30次（60秒）
+      pollingIntervalRef.current = setInterval(async () => {
+        checkCount++;
+        try {
+          const points = await getKnowledgePoints(documentId);
+          if (points && points.length > 0) {
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            const transformedPoints = points.map((point) => ({
+              ...point,
+              id:
+                point.id ||
+                (point as { _id?: { toString: () => string } })._id?.toString() ||
+                '',
+            }));
+            setKnowledgePoints(transformedPoints);
+            setIsRegenerating(false);
+            message.success('知识点生成完成！');
+            return;
+          }
+        } catch {
+          // 继续等待
+        }
+
+        // 达到最大检查次数，停止轮询
+        if (checkCount >= maxChecks) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          setIsRegenerating(false);
+          // 重新加载一次
+          void loadKnowledgePoints();
+        }
+      }, 2000); // 每2秒检查一次
+    } catch (err) {
+      console.error('重新生成知识点失败:', err);
+      const errorMsg =
+        err instanceof Error ? err.message : '重新生成知识点失败，请稍后重试';
+      message.error(errorMsg);
+      setError(err instanceof Error ? err : new Error(errorMsg));
+      setIsRegenerating(false);
+    }
+  };
+
+  /**
+   * 加载知识点
+   */
+  const loadKnowledgePoints = async () => {
+    if (documentStatus !== 'completed' || !documentId) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const points = await getKnowledgePoints(documentId);
+      console.log('加载的知识点数据:', points);
+      // 确保每个知识点都有 id 字段
+      const transformedPoints = points.map((point) => ({
+        ...point,
+        id:
+          point.id ||
+          (point as { _id?: { toString: () => string } })._id?.toString() ||
+          '',
+      }));
+      console.log('转换后的知识点数据:', transformedPoints);
+      setKnowledgePoints(transformedPoints);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('加载知识点失败'));
+      console.error('加载知识点失败:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // 如果文档还在处理中，显示等待状态
   if (documentStatus !== 'completed') {
@@ -82,12 +183,12 @@ export default function KnowledgeCard({
     );
   }
 
-  // 如果正在加载，显示加载状态
-  if (isLoading) {
+  // 如果正在加载或重新生成，显示加载状态
+  if (isLoading || isRegenerating) {
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
         <div className={styles.loadingContainer}>
-          <Spin tip="加载知识点中..." />
+          <Spin tip={isRegenerating ? '正在重新生成知识点...' : '加载知识点中...'} />
         </div>
       </Card>
     );
@@ -106,17 +207,23 @@ export default function KnowledgeCard({
   if (knowledgePoints.length === 0) {
     // 检查是否是生成失败（文档已完成但无知识点）
     const isGenerationFailed =
-      documentStatus === 'completed' && !isLoading && !error;
+      documentStatus === 'completed' && !isLoading && !isRegenerating && !error;
     
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
         <Empty
           description={
             isGenerationFailed
-              ? '知识点生成失败，可能是内容过长导致。请尝试重新生成或联系管理员。'
+              ? '知识点生成失败，请重试'
               : '知识点生成中，请稍候...'
           }
-        />
+        >
+          {isGenerationFailed && (
+            <Button type="primary" onClick={handleRegenerate}>
+              重新生成
+            </Button>
+          )}
+        </Empty>
       </Card>
     );
   }
