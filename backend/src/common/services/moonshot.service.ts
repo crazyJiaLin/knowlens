@@ -530,6 +530,96 @@ ${segmentsText}
   }
 
   /**
+   * 生成文档标题
+   * - 基于文本内容生成简洁、准确的标题
+   * - 标题长度控制在 50 字符以内
+   *
+   * @param text 文本内容
+   * @returns 生成的标题
+   */
+  async generateTitle(text: string): Promise<string> {
+    if (!this.client) {
+      throw new Error('Moonshot 服务未配置，无法生成标题');
+    }
+
+    if (!text || text.trim().length === 0) {
+      throw new Error('文本内容为空，无法生成标题');
+    }
+
+    this.logger.log('开始生成文档标题');
+
+    // 截断文本以适应 token 限制（标题生成不需要完整文本）
+    const maxCharsForTitle = 2000; // 使用前 2000 字符即可
+    const textToUse =
+      text.length > maxCharsForTitle
+        ? text.substring(0, maxCharsForTitle) + '...'
+        : text;
+
+    const systemPrompt = `你是一个文档标题生成专家。请根据文本内容生成一个简洁、准确、有吸引力的标题。
+
+要求：
+- 标题长度控制在 50 字符以内
+- 标题要准确概括文本的核心内容
+- 标题要简洁明了，避免冗余
+- 只返回标题文本，不要添加任何前缀、后缀或说明`;
+
+    const userPrompt = `请为以下文本生成一个标题：
+
+${textToUse}
+
+请直接返回标题，不要添加任何其他内容。`;
+
+    const model =
+      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+
+    try {
+      const requestPromise = this.client.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 100, // 标题不需要太多 tokens
+      });
+
+      const timeoutPromise = this.createTimeoutPromise(this.timeout);
+      const response = await Promise.race([
+        requestPromise,
+        timeoutPromise.then(() => {
+          throw new Error(
+            `标题生成请求超时（${this.timeout / 1000}秒），请稍后重试`,
+          );
+        }),
+      ]);
+
+      const title = response.choices[0]?.message?.content?.trim() || '';
+
+      if (!title) {
+        throw new Error('标题生成失败：返回内容为空');
+      }
+
+      // 确保标题不超过 50 字符
+      const finalTitle =
+        title.length > 50 ? title.substring(0, 50).trim() : title;
+
+      this.logger.log(`标题生成成功: ${finalTitle}`);
+      return finalTitle;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`标题生成失败: ${errorMessage}`);
+      throw new Error(`标题生成失败: ${errorMessage}`);
+    }
+  }
+
+  /**
    * 生成知识点的深度洞察
    * - 基于知识点内容和完整原文生成三段式洞察
    * - 包含逻辑演绎、隐含信息、延伸思考

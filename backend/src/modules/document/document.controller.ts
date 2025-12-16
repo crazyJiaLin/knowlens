@@ -1,8 +1,10 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   Query,
+  Body,
   Delete,
   UseGuards,
   HttpCode,
@@ -18,6 +20,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DocumentService } from './document.service';
 import { QueryDocumentDto } from './dto/query-document.dto';
+import { CreateFromTextDto } from './dto/create-from-text.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../../common/decorators/user.decorator';
 
@@ -29,6 +32,7 @@ export class DocumentController {
   constructor(
     private readonly documentService: DocumentService,
     @InjectQueue('video-queue') private videoQueue: Queue,
+    @InjectQueue('knowledge-queue') private knowledgeQueue: Queue,
   ) {}
 
   @Get('list')
@@ -84,13 +88,26 @@ export class DocumentController {
     // 如果文档正在处理中，尝试从队列获取进度
     if (status.status === 'processing') {
       try {
-        // 查找相关的任务（通过 documentId 匹配）
-        const jobs = await this.videoQueue.getJobs(['active', 'waiting']);
-        const job = jobs.find(
+        // 先查找 video-queue 中的任务
+        const videoJobs = await this.videoQueue.getJobs(['active', 'waiting']);
+        let job = videoJobs.find(
           (j) =>
             j.data &&
             (j.data as { documentId?: string }).documentId === documentId,
         );
+
+        // 如果没找到，再查找 knowledge-queue 中的任务
+        if (!job) {
+          const knowledgeJobs = await this.knowledgeQueue.getJobs([
+            'active',
+            'waiting',
+          ]);
+          job = knowledgeJobs.find(
+            (j) =>
+              j.data &&
+              (j.data as { documentId?: string }).documentId === documentId,
+          );
+        }
 
         if (job) {
           // BullMQ job.progress 可能是属性或 getter，需要 await
@@ -135,6 +152,23 @@ export class DocumentController {
     }
 
     return status;
+  }
+
+  @Post('create-from-text')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '从文本创建文档' })
+  @ApiResponse({ status: 200, description: '创建成功' })
+  @ApiResponse({ status: 401, description: '未登录' })
+  @ApiResponse({ status: 400, description: '参数错误' })
+  async createFromText(
+    @Body() dto: CreateFromTextDto,
+    @User('id') userId: string,
+  ) {
+    const result = await this.documentService.createFromText(dto, userId);
+    return {
+      success: true,
+      ...result,
+    };
   }
 
   @Delete(':id')

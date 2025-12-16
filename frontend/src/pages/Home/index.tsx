@@ -4,6 +4,7 @@ import { PaperClipOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { UploadProps } from 'antd';
 import { submitVideo } from '@/api/video';
+import { createFromText } from '@/api/document';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -16,23 +17,26 @@ const BILIBILI_REGEX =
   /^(https?:\/\/)?(www\.)?(bilibili\.com\/video\/|b23\.tv\/)(BV[a-zA-Z0-9]+|av\d+)/i;
 
 export default function Home() {
-  const [inputValue, setInputValue] = useState('https://www.bilibili.com/video/BV1MApqzxEFD/?spm_id_from=333.337.search-card.all.click&vd_source=00040ae605a8b6f8a8cf53d5fb9f525a');
+  const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { openLoginModal } = useUIStore();
 
+  // 文本字数统计
+  const textCharCount = inputValue.length;
+  const maxTextLength = 30000; // 3万字
+
   /**
-   * 验证 URL 格式
+   * 判断输入是否为视频链接
    */
-  const validateUrl = (url: string): boolean => {
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) {
+  const isVideoUrl = (input: string): boolean => {
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
       return false;
     }
-
     // 检查是否为 YouTube 或 B站 URL
-    return YOUTUBE_REGEX.test(trimmedUrl) || BILIBILI_REGEX.test(trimmedUrl);
+    return YOUTUBE_REGEX.test(trimmedInput) || BILIBILI_REGEX.test(trimmedInput);
   };
 
   /**
@@ -48,23 +52,32 @@ export default function Home() {
 
     const trimmedValue = inputValue.trim();
     if (!trimmedValue) {
-      message.warning('请输入视频链接');
-      return;
-    }
-
-    // 验证 URL 格式
-    if (!validateUrl(trimmedValue)) {
-      message.error('请输入有效的 YouTube 或 B站视频链接');
+      message.warning('请输入内容');
       return;
     }
 
     try {
       setLoading(true);
-      const result = await submitVideo({ videoUrl: trimmedValue });
-      message.success('视频提交成功，正在处理中...');
 
-      // 跳转到结果页
-      navigate(`/document/${result.documentId}`);
+      // 判断输入类型：如果是视频链接，使用视频方式；否则使用文本方式
+      if (isVideoUrl(trimmedValue)) {
+        // 视频链接处理
+        const result = await submitVideo({ videoUrl: trimmedValue });
+        message.success('视频提交成功，正在处理中...');
+        // 跳转到文档页面（视频类型）
+        navigate(`/document/video/${result.documentId}`);
+      } else {
+        // 文本内容处理
+        if (trimmedValue.length > maxTextLength) {
+          message.error(`文本内容不能超过${maxTextLength.toLocaleString()}字`);
+          setLoading(false);
+          return;
+        }
+        const result = await createFromText(trimmedValue);
+        message.success('文本提交成功，正在处理中...');
+        // 跳转到文档页面（文本类型）
+        navigate(`/document/text/${result.documentId}`);
+      }
 
       // 清空输入框
       setInputValue('');
@@ -137,10 +150,10 @@ export default function Home() {
         <div className="border-animation" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <TextArea
-            placeholder="复制视频链接或者上传 PDF"
+            placeholder={`粘贴视频链接或文本内容（目前仅支持B站链接或纯文本，最多${(maxTextLength / 10000).toFixed(0)}万字）`}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            autoSize={{ minRows: 2, maxRows: 6 }}
+            autoSize={{ minRows: 4, maxRows: 20 }}
             onPressEnter={(e) => {
               if (e.shiftKey) {
                 return;
@@ -149,6 +162,7 @@ export default function Home() {
               void handleSubmit();
             }}
             disabled={loading}
+            maxLength={maxTextLength}
             style={{
               flex: 1,
               fontSize: '16px',
@@ -168,30 +182,43 @@ export default function Home() {
               padding: '10px',
             }}
           >
-            <Upload
-              customRequest={handleUpload}
-              showUploadList={false}
-              accept=".pdf,.mp4,.mov,.avi"
-            >
-              <Button
-                type="text"
-                icon={<PaperClipOutlined />}
-                style={{
-                  color: 'var(--color-text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Upload
+                customRequest={handleUpload}
+                showUploadList={false}
+                accept=".pdf,.mp4,.mov,.avi"
               >
-                上传附件
-              </Button>
-            </Upload>
+                <Button
+                  type="text"
+                  icon={<PaperClipOutlined />}
+                  style={{
+                    color: 'var(--color-text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  上传附件
+                </Button>
+              </Upload>
+              {!isVideoUrl(inputValue) && (
+                <span
+                  style={{
+                    color: 'var(--color-text-secondary)',
+                    fontSize: '12px',
+                  }}
+                >
+                  {textCharCount.toLocaleString()} / {maxTextLength.toLocaleString()} 字
+                </span>
+              )}
+            </div>
             <Button
               type="primary"
               shape="circle"
               icon={<ArrowRightOutlined />}
               onClick={handleSubmit}
               loading={loading}
+              disabled={!inputValue.trim()}
             />
           </div>
         </div>

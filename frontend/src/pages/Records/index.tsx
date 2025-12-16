@@ -200,8 +200,10 @@ export default function Records() {
   };
 
   // 跳转到文档详情页
-  const handleClickDocument = (documentId: string) => {
-    navigate(`/document/${documentId}`);
+  const handleClickDocument = (documentId: string, sourceType?: string) => {
+    // 根据文档类型跳转到对应路由
+    const type = sourceType || 'text'; // 默认为 text
+    navigate(`/document/${type}/${documentId}`);
   };
 
   // 获取文档类型图标
@@ -320,7 +322,7 @@ export default function Records() {
                   key={doc.id}
                   className={`${styles.documentCard} ${styles[`documentCard${doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}`]}`}
                   hoverable
-                  onClick={() => handleClickDocument(doc.id)}
+                  onClick={() => handleClickDocument(doc.id, doc.sourceType)}
                 >
                   {/* 右上角删除按钮（hover显示） */}
                   <div className={styles.deleteButtonWrapper}>

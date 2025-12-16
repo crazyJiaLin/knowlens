@@ -1,15 +1,19 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Model } from 'mongoose';
+import { Queue } from 'bullmq';
 import { Document, DocumentDocument } from './schemas/document.schema';
 import { Segment, SegmentDocument } from './schemas/segment.schema';
 import { QueryDocumentDto } from './dto/query-document.dto';
+import { CreateFromTextDto } from './dto/create-from-text.dto';
 import {
   KnowledgePoint,
   KnowledgePointDocument,
 } from '../knowledge/schemas/knowledge-point.schema';
 import { Insight, InsightDocument } from '../insight/schemas/insight.schema';
 import { OssService } from '../aliyun/oss.service';
+import { MoonshotService } from '../../common/services/moonshot.service';
 
 @Injectable()
 export class DocumentService {
@@ -24,7 +28,10 @@ export class DocumentService {
     private knowledgePointModel: Model<KnowledgePointDocument>,
     @InjectModel(Insight.name)
     private insightModel: Model<InsightDocument>,
+    @InjectQueue('knowledge-queue')
+    private knowledgeQueue: Queue,
     private ossService: OssService,
+    private moonshotService: MoonshotService,
   ) {}
 
   /**
@@ -306,5 +313,195 @@ export class DocumentService {
       this.logger.warn(`解析URL失败: ${url}, 错误: ${errorMessage}`);
       return null;
     }
+  }
+
+  /**
+   * 从文本创建文档
+   * @param dto 文本内容
+   * @param userId 用户ID
+   * @returns 文档ID和状态
+   */
+  async createFromText(
+    dto: CreateFromTextDto,
+    userId: string,
+  ): Promise<{
+    documentId: string;
+    status: string;
+    message: string;
+  }> {
+    const { text, title } = dto;
+
+    // 计算字数
+    const wordCount = text.length;
+
+    // 如果用户提供了标题，使用用户提供的；否则使用临时标题，等待AI生成
+    const documentTitle = title && title.trim() 
+      ? title.trim() 
+      : '解析中...'; // 临时标题，将在知识点生成任务中由AI生成
+
+    // 创建文档记录
+    const document = await this.documentModel.create({
+      userId,
+      sourceType: 'text',
+      title: documentTitle,
+      status: 'processing',
+      wordCount,
+      language: 'zh',
+    });
+
+    const documentId = document._id.toString();
+
+    try {
+      // 文本分段：按段落分割，如果段落太长则按固定长度分割
+      const segments = this.splitTextIntoSegments(text, documentId);
+
+      // 保存片段到数据库
+      if (segments.length > 0) {
+        await this.segmentModel.insertMany(segments);
+        this.logger.log(`保存了 ${segments.length} 个文本片段到数据库`);
+      }
+
+      // 更新文档字数（状态保持为 processing，等待知识点生成完成）
+      await this.documentModel.updateOne(
+        { _id: documentId },
+        {
+          wordCount,
+        },
+      );
+
+      // 触发知识点提炼任务
+      await this.knowledgeQueue.add(
+        'generate-knowledge-points',
+        {
+          documentId,
+          userId,
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        },
+      );
+
+      this.logger.log(
+        `文本文档创建成功: documentId=${documentId}, segments=${segments.length}`,
+      );
+
+      return {
+        documentId,
+        status: 'processing', // 知识点生成中
+        message: '文本文档创建成功，正在生成知识点...',
+      };
+    } catch (error) {
+      // 如果处理失败，更新文档状态
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await this.documentModel.updateOne(
+        { _id: documentId },
+        {
+          status: 'failed',
+          errorMessage,
+        },
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 将文本分割成片段
+   * 策略：按换行符（\n）分割成段落，如果段落超过2000字符，则按固定长度（2000字符）分割
+   * @param text 完整文本
+   * @param documentId 文档ID
+   * @returns 片段数组
+   */
+  private splitTextIntoSegments(
+    text: string,
+    documentId: string,
+  ): Array<{
+    documentId: string;
+    segmentIndex: number;
+    text: string;
+    charStart: number;
+    charEnd: number;
+  }> {
+    const segments: Array<{
+      documentId: string;
+      segmentIndex: number;
+      text: string;
+      charStart: number;
+      charEnd: number;
+    }> = [];
+
+    // 按换行符分割（\n），保留换行符在文本中
+    const lines = text.split(/\n/);
+    let currentCharIndex = 0;
+    let segmentIndex = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineWithNewline = i < lines.length - 1 ? line + '\n' : line; // 最后一行不加换行符
+
+      // 跳过空行（但保留换行符）
+      if (line.trim().length === 0 && i < lines.length - 1) {
+        // 空行也作为一个segment，保留换行符
+        const charStart = currentCharIndex;
+        const charEnd = charStart + lineWithNewline.length;
+
+        segments.push({
+          documentId,
+          segmentIndex: segmentIndex++,
+          text: lineWithNewline,
+          charStart,
+          charEnd,
+        });
+
+        currentCharIndex += lineWithNewline.length;
+        continue;
+      }
+
+      // 如果行长度超过2000字符，按固定长度分割
+      if (lineWithNewline.length > 2000) {
+        const chunkSize = 2000;
+        let chunkStart = 0;
+
+        while (chunkStart < lineWithNewline.length) {
+          const chunk = lineWithNewline.substring(
+            chunkStart,
+            Math.min(chunkStart + chunkSize, lineWithNewline.length),
+          );
+          const charStart = currentCharIndex + chunkStart;
+          const charEnd = charStart + chunk.length;
+
+          segments.push({
+            documentId,
+            segmentIndex: segmentIndex++,
+            text: chunk,
+            charStart,
+            charEnd,
+          });
+
+          chunkStart += chunkSize;
+        }
+
+        currentCharIndex += lineWithNewline.length;
+      } else {
+        // 行长度合适，直接作为一个片段
+        const charStart = currentCharIndex;
+        const charEnd = charStart + lineWithNewline.length;
+
+        segments.push({
+          documentId,
+          segmentIndex: segmentIndex++,
+          text: lineWithNewline,
+          charStart,
+          charEnd,
+        });
+
+        currentCharIndex += lineWithNewline.length;
+      }
+    }
+
+    return segments;
   }
 }

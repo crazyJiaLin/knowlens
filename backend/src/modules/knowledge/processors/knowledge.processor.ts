@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Logger, Inject } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
@@ -39,7 +39,7 @@ export class KnowledgeProcessor extends WorkerHost {
   }
 
   async process(job: Job<KnowledgeJobData>) {
-    const { documentId, userId } = job.data;
+    const { documentId } = job.data;
 
     this.logger.log(
       `开始处理知识点生成任务: jobId=${job.id}, documentId=${documentId}`,
@@ -98,6 +98,34 @@ export class KnowledgeProcessor extends WorkerHost {
 
       await job.updateProgress({
         progress: 40,
+        message: '正在调用AI生成标题和提炼知识点...',
+      });
+
+      // 如果文档标题是临时标题（"解析中..."），则使用AI生成标题
+      let generatedTitle: string | null = null;
+      if (
+        document.title === '解析中...' ||
+        !document.title ||
+        document.title.trim() === ''
+      ) {
+        try {
+          this.logger.log('开始使用AI生成文档标题...');
+          generatedTitle =
+            await this.moonshotService.generateTitle(contentText);
+          this.logger.log(`AI生成标题成功: ${generatedTitle}`);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(`AI生成标题失败: ${errorMessage}，将使用默认标题`);
+          // 如果AI生成失败，使用文本前50字符作为标题
+          generatedTitle =
+            contentText.substring(0, 50).replace(/\n/g, ' ').trim() ||
+            '文本文档';
+        }
+      }
+
+      await job.updateProgress({
+        progress: 50,
         message: '正在调用AI提炼知识点...',
       });
 
@@ -144,8 +172,18 @@ export class KnowledgeProcessor extends WorkerHost {
         }
 
         // 构建sourceAnchor
-        const sourceAnchor: any = {
-          type: document.sourceType,
+        interface SourceAnchor {
+          type: 'video' | 'pdf' | 'text';
+          startTime?: number;
+          endTime?: number;
+          page?: number;
+          startOffset?: number;
+          endOffset?: number;
+          segmentId?: string;
+        }
+
+        const sourceAnchor: SourceAnchor = {
+          type: document.sourceType as 'video' | 'pdf' | 'text',
         };
 
         if (document.sourceType === 'video') {
@@ -162,7 +200,7 @@ export class KnowledgeProcessor extends WorkerHost {
         }
 
         if (segment) {
-          sourceAnchor.segmentId = segment._id;
+          sourceAnchor.segmentId = segment._id.toString();
         }
 
         return {
@@ -178,6 +216,22 @@ export class KnowledgeProcessor extends WorkerHost {
       await this.knowledgePointModel.insertMany(knowledgePointDocs);
 
       this.logger.log(`保存了 ${knowledgePointDocs.length} 个知识点到数据库`);
+
+      // 更新文档标题和状态
+      const updateData: { title?: string; status: string } = {
+        status: 'completed',
+      };
+
+      if (generatedTitle) {
+        updateData.title = generatedTitle;
+      }
+
+      await this.documentModel.updateOne({ _id: documentId }, updateData);
+
+      if (generatedTitle) {
+        this.logger.log(`已更新文档标题: ${generatedTitle}`);
+      }
+      this.logger.log(`已更新文档状态为 completed`);
 
       await job.updateProgress({ progress: 100, message: '知识点生成完成' });
 

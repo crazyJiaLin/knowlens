@@ -18,6 +18,7 @@ interface KnowledgeCardProps {
   progress?: number;
   onJumpToTime?: (seconds: number) => void;
   onHighlightSegment?: (segmentIndex: number) => void;
+  onJumpToChar?: (charStart: number, charEnd?: number) => void;
   highlightedKnowledgePointId?: string | null;
 }
 
@@ -28,6 +29,7 @@ export default function KnowledgeCard({
   progress = 0,
   onJumpToTime,
   onHighlightSegment,
+  onJumpToChar,
   highlightedKnowledgePointId,
 }: KnowledgeCardProps) {
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
@@ -235,7 +237,13 @@ export default function KnowledgeCard({
     console.log('handleBadgeClick', point);
     const { sourceAnchor } = point;
 
-    // 跳转到视频时间
+    // 文本类型：跳转到字符位置
+    if (sourceAnchor.type === 'text' && sourceAnchor.startOffset !== undefined && onJumpToChar) {
+      onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
+      return;
+    }
+
+    // 视频类型：跳转到视频时间
     if (sourceAnchor.startTime !== undefined && onJumpToTime) {
       onJumpToTime(sourceAnchor.startTime);
     }
@@ -319,9 +327,13 @@ export default function KnowledgeCard({
                 {/* 嵌入的洞察内容 */}
                 {isExpanded && (
                   <div className={styles.insightContentWrapper}>
-                    <InsightCard knowledgePointId={point.id} />
-                </div>
-              )}
+                    <InsightCard
+                      knowledgePointId={point.id}
+                      onJumpToChar={onJumpToChar}
+                      sourceAnchor={point.sourceAnchor}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );

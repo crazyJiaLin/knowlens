@@ -2,7 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import App from '../App';
 import Home from '../pages/Home';
 import UserSetting from '../pages/UserSetting';
-import VideoDocument from '../pages/Document/VideoDocument';
+import Document from '../pages/Document/Document';
 import BilibiliCookieManage from '../pages/BilibiliCookieManage';
 import Records from '../pages/Records';
 
@@ -24,8 +24,8 @@ export const router = createBrowserRouter([
         element: <Records />,
       },
       {
-        path: 'document/:id',
-        element: <VideoDocument />,
+        path: 'document/:type/:id',
+        element: <Document />,
       },
       {
         path: 'cookies',

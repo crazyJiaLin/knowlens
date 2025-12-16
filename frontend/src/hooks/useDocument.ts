@@ -73,11 +73,20 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
 
     try {
       const docStatus = await getDocumentStatus(documentId);
+      const previousStatus = status?.status;
+      const previousProgress = progress;
       setStatus(docStatus);
       
       // 更新进度
       if (docStatus.progress !== undefined) {
         setProgress(docStatus.progress);
+      }
+
+      // 如果状态变为completed，停止轮询，重新加载文档和片段
+      if (docStatus.status === 'completed' && previousStatus !== 'completed') {
+        await loadDocument();
+        await loadSegments();
+        return; // 停止轮询
       }
 
       // 如果状态更新了，重新加载文档
@@ -110,9 +119,14 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, enabled, progress, document?.status]);
 
-  // 自动轮询状态（如果文档正在处理中）
+  // 自动轮询状态（只在文档正在处理中时轮询）
   useEffect(() => {
-    if (!documentId || !enabled || !autoPoll || status?.status !== 'processing') {
+    if (!documentId || !enabled || !autoPoll) {
+      return;
+    }
+
+    // 如果文档已完成，停止轮询
+    if (status?.status === 'completed') {
       return;
     }
 

@@ -103,3 +103,17 @@ export const getDocumentSegments = async (documentId: string): Promise<Segment[]
 export const deleteDocument = async (documentId: string): Promise<{ success: boolean; message: string }> => {
   return request.delete(`/document/${documentId}`);
 };
+
+/**
+ * 从文本创建文档
+ */
+export const createFromText = async (
+  text: string,
+  title?: string
+): Promise<{ success: boolean; documentId: string; status: string; message: string }> => {
+  const payload: { text: string; title?: string } = { text };
+  if (title && title.trim()) {
+    payload.title = title.trim();
+  }
+  return request.post('/document/create-from-text', payload);
+};

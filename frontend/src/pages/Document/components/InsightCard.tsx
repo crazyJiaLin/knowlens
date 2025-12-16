@@ -1,16 +1,21 @@
 import { Typography, Button, Skeleton, message, Modal, Space } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import { generateInsightStream, getInsight, type Insight } from '@/api/insight';
+import type { SourceAnchor } from '@/api/knowledge';
 import styles from './InsightCard.module.css';
 
 const { Title, Text } = Typography;
 
 interface InsightCardProps {
   knowledgePointId: string;
+  onJumpToChar?: (charStart: number, charEnd?: number) => void;
+  sourceAnchor?: SourceAnchor;
 }
 
 export default function InsightCard({
   knowledgePointId,
+  onJumpToChar,
+  sourceAnchor,
 }: InsightCardProps) {
   const [insight, setInsight] = useState<Insight | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -356,7 +361,15 @@ export default function InsightCard({
                   <Title level={5} className={styles.sectionTitle}>
                     隐含信息
                   </Title>
-                  <Text className={styles.sectionContent}>
+                  <Text 
+                    className={styles.sectionContent}
+                    style={onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}}
+                    onClick={() => {
+                      if (onJumpToChar && sourceAnchor?.type === 'text' && sourceAnchor.startOffset !== undefined) {
+                        onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
+                      }
+                    }}
+                  >
                     {insight.hiddenInfo}
                   </Text>
                 </div>
@@ -380,7 +393,15 @@ export default function InsightCard({
                   <Title level={5} className={styles.sectionTitle}>
                     延伸思考
                   </Title>
-                  <Text className={styles.sectionContent}>
+                  <Text 
+                    className={styles.sectionContent}
+                    style={onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}}
+                    onClick={() => {
+                      if (onJumpToChar && sourceAnchor?.type === 'text' && sourceAnchor.startOffset !== undefined) {
+                        onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
+                      }
+                    }}
+                  >
                     {insight.extensionOptional}
                   </Text>
                 </div>
