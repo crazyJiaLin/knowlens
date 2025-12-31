@@ -74,7 +74,6 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
     try {
       const docStatus = await getDocumentStatus(documentId);
       const previousStatus = status?.status;
-      const previousProgress = progress;
       setStatus(docStatus);
       
       // 更新进度

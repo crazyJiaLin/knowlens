@@ -3,11 +3,25 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# 复制 package 文件
-COPY package*.json ./
+# 完全清理所有 npm 配置、缓存和认证信息
+RUN rm -rf ~/.npmrc /root/.npmrc ~/.npm /root/.npm /usr/local/etc/npmrc /etc/npmrc && \
+    npm config delete registry || true && \
+    npm config delete //registry.npmjs.org/:_authToken || true && \
+    npm config delete //registry.npmmirror.com/:_authToken || true && \
+    npm config delete _auth || true && \
+    npm config delete _authToken || true && \
+    npm cache clean --force
 
-# 安装依赖
-RUN npm ci
+# 只复制 package.json，不复制 package-lock.json（避免 lock 文件中的认证问题）
+COPY package.json ./
+
+# 安装依赖：只用 package.json，让 npm 重新解析依赖
+RUN npm install \
+    --registry=https://registry.npmmirror.com \
+    --no-audit \
+    --legacy-peer-deps \
+    --no-package-lock \
+    --cache=/tmp/.npm
 
 # 复制源代码
 COPY . .

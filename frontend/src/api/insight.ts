@@ -27,7 +27,6 @@ export const generateInsightStream = async (
   kpId: string,
   forceRegenerate: boolean,
   onChunk: (chunk: Partial<Insight>) => void,
-  onTimeout?: () => void
 ): Promise<Insight> => {
   // 确保 kpId 是字符串类型
   if (!kpId || typeof kpId !== 'string') {
@@ -37,9 +36,6 @@ export const generateInsightStream = async (
 
   const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
   const url = `${baseURL}/insight/generate-stream`;
-
-  // 获取 cookie
-  const cookies = document.cookie;
   
   const response = await fetch(url, {
     method: 'POST',
@@ -195,10 +191,10 @@ export const generateInsight = async (
   
   // 处理双重包装的情况
   if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-    return (response as { success: boolean; data: Insight }).data;
+    return (response as any).data;
   }
   
-  return response as Insight;
+  return response as any;
 };
 
 /**
@@ -216,10 +212,10 @@ export const getInsight = async (kpId: string): Promise<Insight | null> => {
     );
     
     if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-      return (response as { success: boolean; data: Insight }).data;
+      return (response as any).data;
     }
     
-    return response as Insight;
+    return response as any;
   } catch (error) {
     // 如果洞察不存在，返回 null
     if (error instanceof Error && error.message.includes('404')) {

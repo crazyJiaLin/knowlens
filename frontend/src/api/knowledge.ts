@@ -91,7 +91,7 @@ export const getKnowledgePointById = async (
   const response = await request.get<{ success: boolean; data: KnowledgePoint }>(
     `/knowledge-points/${id}`
   );
-  return response.data;
+  return (response as any).data;
 };
 
 /**
@@ -107,6 +107,6 @@ export const regenerateKnowledgePoints = async (
   }>('/knowledge-points/regenerate', {
     documentId,
   });
-  return response;
+  return response.data;
 };
 
