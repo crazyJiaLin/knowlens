@@ -37,9 +37,10 @@ export default () => ({
     sms: {
       accessKeyId: process.env.ALIYUN_SMS_ACCESS_KEY_ID,
       accessKeySecret: process.env.ALIYUN_SMS_ACCESS_KEY_SECRET,
-      signName: process.env.ALIYUN_SMS_SIGN_NAME,
-      templateCode: process.env.ALIYUN_SMS_TEMPLATE_CODE,
+      signName: process.env.ALIYUN_SMS_SIGN_NAME, // 可选，短信认证服务会使用默认签名
+      templateCode: process.env.ALIYUN_SMS_TEMPLATE_CODE, // 可选，短信认证服务会使用默认模板
       region: process.env.ALIYUN_SMS_REGION || 'cn-hangzhou',
+      endpoint: process.env.ALIYUN_SMS_ENDPOINT, // 可选，默认使用短信认证服务 endpoint
     },
   },
 

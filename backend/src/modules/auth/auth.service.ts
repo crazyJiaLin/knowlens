@@ -50,7 +50,8 @@ export class AuthService {
 
     // 生成验证码
     const code = this.generateCode();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5分钟过期
+    const expiresInMinutes = 5; // 验证码有效期（分钟）
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
     // 保存验证码到数据库
     await this.smsCodeModel.create({
@@ -61,7 +62,12 @@ export class AuthService {
     });
 
     // 发送短信（如果配置了阿里云短信服务）
-    const smsResult = await this.smsService.sendVerificationCode(phone, code);
+    // 传递验证码和有效期（分钟）给短信服务
+    const smsResult = await this.smsService.sendVerificationCode(
+      phone,
+      code,
+      expiresInMinutes,
+    );
 
     // 如果短信发送失败，开发环境打印验证码到控制台
     if (!smsResult.success) {
