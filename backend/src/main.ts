@@ -37,8 +37,14 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // 配置 CORS，允许携带 cookie
+  // 支持多个 origin（用逗号分隔），如果只有一个则使用字符串，多个则使用数组
+  const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+  const corsOrigins = corsOrigin.split(',').map((origin) => origin.trim());
+  const corsOriginConfig =
+    corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins;
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: corsOriginConfig,
     credentials: true, // 重要：允许携带 cookie
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Accept'],

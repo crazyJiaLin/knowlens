@@ -3,6 +3,7 @@ import { message } from 'antd';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 
+console.log('环境变量', import.meta.env);
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
   timeout: 30000,
@@ -31,10 +32,10 @@ request.interceptors.response.use(
       // 登录失效，清空用户信息并打开登录弹窗
       const { logout } = useAuthStore.getState();
       const { openLoginModal } = useUIStore.getState();
-      
+
       // 清空 store 和 localStorage 中的用户信息
       logout();
-      
+
       // 打开登录弹窗
       openLoginModal();
       message.warning('登录已失效，请重新登录');

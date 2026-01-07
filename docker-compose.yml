@@ -1,9 +1,23 @@
 services:
-  # Redis 服务（如果使用本地 Redis）
+  # MongoDB 数据库服务
+  mongodb:
+    image: mongo:7
+    container_name: knowlens-mongodb
+    restart: unless-stopped
+    stop_grace_period: 10s
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - knowlens-network
+
+  # Redis 服务
   redis:
     image: redis:7-alpine
     container_name: knowlens-redis
     restart: unless-stopped
+    stop_grace_period: 10s
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
@@ -19,15 +33,17 @@ services:
       dockerfile: Dockerfile
     container_name: knowlens-backend
     restart: unless-stopped
+    stop_grace_period: 10s
     ports:
       - "127.0.0.1:3000:3000"
     env_file:
-      - ./backend/.env.production
+      - ./backend/.env.test
     volumes:
       - ./backend/logs:/app/logs
       - ./backend/temp:/app/temp
       - ./backend/uploadFile:/app/uploadFile
     depends_on:
+      - mongodb
       - redis
     networks:
       - knowlens-network
@@ -44,6 +60,7 @@ services:
       dockerfile: Dockerfile
     container_name: knowlens-frontend
     restart: unless-stopped
+    stop_grace_period: 10s
     ports:
       - "80:80"
     depends_on:
@@ -52,6 +69,7 @@ services:
       - knowlens-network
 
 volumes:
+  mongodb-data:
   redis-data:
 
 networks:
