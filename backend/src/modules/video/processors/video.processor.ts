@@ -138,9 +138,6 @@ export class VideoProcessor extends WorkerHost {
             message: '正在转写音频...',
           });
           this.logger.log('开始转写音频...');
-          // transcript = await this.xfyunService.transcribe(
-          //   '/Users/chenjialin/Desktop/WorkSpace/personal/knowlens/backend/temp/audio/3_1_3_3_sap_in_chinese.mp3',
-          // );
           transcript = await this.xfyunService.transcribe(audioPath);
 
           // 3. 清理临时音频文件

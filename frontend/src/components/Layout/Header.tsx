@@ -1,6 +1,8 @@
-import { Avatar, Dropdown, Button, Space } from 'antd';
+import { Dropdown, Button, Space } from 'antd';
 import type { MenuProps } from 'antd';
-import { UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
+import { SettingOutlined, LogoutOutlined } from '@ant-design/icons';
+// import { Avatar } from 'antd';
+// import { UserOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { logout } from '@/api/auth';
@@ -115,10 +117,7 @@ export default function Header() {
         </Button>
         {isAuthenticated && user ? (
           <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar src={user.avatarUrl} icon={<UserOutlined />} size="default" />
-              <span style={{ whiteSpace: 'nowrap' }}>{getUserName()}</span>
-            </Space>
+            <span style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>{getUserName()}</span>
           </Dropdown>
         ) : (
           <Button type="primary" onClick={openLoginModal}>

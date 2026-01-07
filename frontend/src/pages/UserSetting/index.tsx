@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Form, Input, Button, Upload, Avatar, message, Card } from 'antd';
-import { UserOutlined, UploadOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Card } from 'antd';
+// import { Upload, Avatar } from 'antd';
+// import { UserOutlined, UploadOutlined } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/authStore';
-import { getUserProfile, updateUserProfile, uploadAvatar, type UserProfile } from '@/api/user';
-import type { UploadProps } from 'antd';
+import { getUserProfile, updateUserProfile, type UserProfile } from '@/api/user';
+// import { uploadAvatar } from '@/api/user';
+// import type { UploadProps } from 'antd';
 
 export default function UserSetting() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  // const [uploading, setUploading] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const { user, updateUser } = useAuthStore();
+  const { updateUser } = useAuthStore();
 
   // 加载用户资料
   const loadUserProfile = useCallback(async () => {
@@ -30,37 +32,37 @@ export default function UserSetting() {
     void loadUserProfile();
   }, [loadUserProfile]);
 
-  // 头像上传
-  const handleAvatarUpload: UploadProps['customRequest'] = async (options) => {
-    const { file, onSuccess, onError } = options;
-    setUploading(true);
+  // 头像上传功能已注释
+  // const handleAvatarUpload: UploadProps['customRequest'] = async (options) => {
+  //   const { file, onSuccess, onError } = options;
+  //   setUploading(true);
 
-    try {
-      const result = await uploadAvatar(file as File);
-      console.log('上传成功result', result);
-      message.success('头像上传成功');
+  //   try {
+  //     const result = await uploadAvatar(file as File);
+  //     console.log('上传成功result', result);
+  //     message.success('头像上传成功');
 
-      // 更新本地状态
-      const updatedProfile = {
-        ...userProfile,
-        avatarUrl: result.avatarUrl,
-      } as UserProfile;
-      setUserProfile(updatedProfile);
+  //     // 更新本地状态
+  //     const updatedProfile = {
+  //       ...userProfile,
+  //       avatarUrl: result.avatarUrl,
+  //     } as UserProfile;
+  //     setUserProfile(updatedProfile);
 
-      // 同步更新 authStore 中的用户信息
-      updateUser({ avatarUrl: result.avatarUrl });
+  //     // 同步更新 authStore 中的用户信息
+  //     updateUser({ avatarUrl: result.avatarUrl });
 
-      // 重新加载用户资料以确保数据一致
-      await loadUserProfile();
+  //     // 重新加载用户资料以确保数据一致
+  //     await loadUserProfile();
 
-      onSuccess?.(result);
-    } catch {
-      message.error('头像上传失败');
-      onError?.(new Error('头像上传失败'));
-    } finally {
-      setUploading(false);
-    }
-  };
+  //     onSuccess?.(result);
+  //   } catch {
+  //     message.error('头像上传失败');
+  //     onError?.(new Error('头像上传失败'));
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // };
 
   // 提交表单
   const handleSubmit = async (values: { nickname: string }) => {
@@ -87,8 +89,8 @@ export default function UserSetting() {
     <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
       <Card title="个人设置">
         <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ maxWidth: '500px' }}>
-          {/* 头像上传 */}
-          <Form.Item label="头像">
+          {/* 头像上传功能已注释 */}
+          {/* <Form.Item label="头像">
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <Avatar
                 size={80}
@@ -119,7 +121,7 @@ export default function UserSetting() {
                 </Button>
               </Upload>
             </div>
-          </Form.Item>
+          </Form.Item> */}
 
           {/* 手机号（只读） */}
           <Form.Item label="手机号" name="phone">
