@@ -112,7 +112,7 @@ export default function Header() {
 
       {/* 右侧操作区 */}
       <Space size="middle" style={{ width: '120px', justifyContent: 'flex-end' }}>
-        <Button type="primary" onClick={() => navigate('/records')}>
+        <Button onClick={() => navigate('/records')}>
           记录
         </Button>
         {isAuthenticated && user ? (

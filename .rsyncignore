@@ -63,6 +63,9 @@ frontend/.vite/
 frontend/.cache/
 backend/.nest/
 
+# 文档
+*.md
+
 # 其他
 .vercel
 .serverless/

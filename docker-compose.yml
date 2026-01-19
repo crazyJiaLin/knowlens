@@ -63,10 +63,15 @@ services:
     stop_grace_period: 10s
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
     depends_on:
       - backend
     networks:
       - knowlens-network
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
 volumes:
   mongodb-data:
