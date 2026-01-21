@@ -1,46 +1,45 @@
 :root {
   /* 主色调 */
-  --color-primary: #3BAF9F;
-  --color-primary-light: #5BC4B5;
-  --color-primary-lighter: #7DD4C7;
-  --color-primary-lightest: #E6F7F5;
-  --color-primary-dark: #2A8F82;
-  --color-primary-darker: #1F6B60;
-  
+  --color-primary: #3baf9f;
+  --color-primary-light: #5bc4b5;
+  --color-primary-lighter: #7dd4c7;
+  --color-primary-lightest: #e6f7f5;
+  --color-primary-dark: #2a8f82;
+  --color-primary-darker: #1f6b60;
+
   /* 辅助色调 */
-  --color-secondary: #6B8E9F;
-  --color-secondary-light: #8BA5B3;
-  --color-secondary-lighter: #B0C4D1;
-  --color-secondary-lightest: #E8F0F4;
-  
+  --color-secondary: #6b8e9f;
+  --color-secondary-light: #8ba5b3;
+  --color-secondary-lighter: #b0c4d1;
+  --color-secondary-lightest: #e8f0f4;
+
   /* 中性色调 */
-  --color-text-primary: #1A1A1A;
+  --color-text-primary: #1a1a1a;
   --color-text-secondary: #666666;
   --color-text-tertiary: #999999;
-  --color-text-disabled: #CCCCCC;
-  --color-border: #E0E0E0;
-  --color-background: #FFFFFF;
-  --color-background-secondary: #F5F5F5;
-  --color-background-tertiary: #FAFAFA;
-  
+  --color-text-disabled: #cccccc;
+  --color-border: #e0e0e0;
+  --color-background: #ffffff;
+  --color-background-secondary: #f5f5f5;
+  --color-background-tertiary: #fafafa;
+
   /* 状态色调 */
-  --color-success: #52C41A;
-  --color-success-light: #B7EB8F;
-  --color-success-lightest: #F6FFED;
-  --color-warning: #FAAD14;
-  --color-warning-light: #FFE58F;
-  --color-warning-lightest: #FFFBE6;
-  --color-error: #FF4D4F;
-  --color-error-light: #FFA39E;
-  --color-error-lightest: #FFF1F0;
-  --color-info: #3BAF9F;
-  --color-info-light: #7DD4C7;
-  --color-info-lightest: #E6F7F5;
-  
+  --color-success: #52c41a;
+  --color-success-light: #b7eb8f;
+  --color-success-lightest: #f6ffed;
+  --color-warning: #faad14;
+  --color-warning-light: #ffe58f;
+  --color-warning-lightest: #fffbe6;
+  --color-error: #ff4d4f;
+  --color-error-light: #ffa39e;
+  --color-error-lightest: #fff1f0;
+  --color-info: #3baf9f;
+  --color-info-light: #7dd4c7;
+  --color-info-lightest: #e6f7f5;
+
   /* 特殊用途 */
-  --color-link: #3BAF9F;
-  --color-link-hover: #2A8F82;
-  --color-highlight: #FFF9C4;
+  --color-link: #3baf9f;
+  --color-link-hover: #2a8f82;
+  --color-highlight: #fff9c4;
   --color-shadow: rgba(0, 0, 0, 0.1);
 }
-

@@ -66,11 +66,12 @@ export class BilibiliService {
    * BV号转 av号（如果需要）
    * 注意：B站 API 需要登录，这里先实现基础解析
    */
-  async bvToAv(bvid: string): Promise<number | null> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  bvToAv(bvid: string): Promise<number | null> {
     // B站 BV号转 av号的算法比较复杂，需要调用 API
     // 这里先返回 null，后续可以通过 B站 API 实现
     this.logger.warn('BV号转 av号功能待实现');
-    return null;
+    return Promise.resolve(null);
   }
 
   /**
@@ -159,7 +160,7 @@ export class BilibiliService {
 
     try {
       // 1. 获取视频信息（包含分P信息）
-      const videoInfo = await this.getVideoInfo(url);
+      // 注意：这里先不获取视频信息，直接处理字幕
       let targetCid = cid;
 
       // 如果没有提供cid，使用第一个分P的cid

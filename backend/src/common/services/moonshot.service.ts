@@ -17,17 +17,17 @@ export class MoonshotService {
   private readonly maxKnowledgePoints: number;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('MOONSHOT_API_KEY');
+    const apiKey = this.configService.get<string>('moonshot.apiKey');
     const baseURL =
-      this.configService.get<string>('MOONSHOT_BASE_URL') ||
+      this.configService.get<string>('moonshot.baseURL') ||
       'https://api.moonshot.cn/v1';
 
-    // 配置超时和重试策略
-    this.timeout = this.configService.get<number>('MOONSHOT_TIMEOUT') || 30000; // 默认30秒
+    // 配置超时和重试策略（从 configuration.ts 中读取）
+    this.timeout = this.configService.get<number>('moonshot.timeout') || 60000; // 默认60秒
     this.maxRetries =
-      this.configService.get<number>('MOONSHOT_MAX_RETRIES') || 2; // 默认重试2次
+      this.configService.get<number>('moonshot.maxRetries') || 2; // 默认重试2次
     this.retryDelay =
-      this.configService.get<number>('MOONSHOT_RETRY_DELAY') || 1000; // 默认延迟1秒
+      this.configService.get<number>('moonshot.retryDelay') || 1000; // 默认延迟1秒
     this.maxTokens =
       this.configService.get<number>('MOONSHOT_MAX_TOKENS') || 6000; // 默认6000 tokens
     this.maxKnowledgePoints =
@@ -158,8 +158,29 @@ export class MoonshotService {
 
 要求：
 - 知识点应该是独立的、有价值的观点或信息
-- excerpt需尽量使用原文，长度控制在50-150字
-- 知识点数量控制在1-${maxPoints}个之间`;
+- excerpt必须从「内容」部分提取原文，不要使用提示词、格式说明或示例文本
+- excerpt长度控制在50-150字
+- 知识点数量控制在1-${maxPoints}个之间
+
+输出格式（JSON）：
+{
+  "knowledgePoints": [
+    {
+      "topic": "知识点主题",
+      "excerpt": "从内容中提取的原文摘录",
+      "segmentId": "从分段信息中准确复制的segmentId",
+      "startTime": 0.20,
+      "endTime": 16.29,
+      "confidenceScore": 0.95,
+      "displayOrder": 1
+    }
+  ]
+}
+
+重要：
+- segmentId必须从分段信息中准确匹配，不能自己生成
+- 如果没有时间信息，startTime和endTime设为null
+- excerpt必须是实际内容的摘录，不要包含格式说明或提示词`;
 
     // 构建 User Prompt
     let userPrompt = `请从以下内容中提炼出最多${maxPoints}个核心知识点。
@@ -189,27 +210,7 @@ export class MoonshotService {
 ${truncatedText}
 
 分段信息（用于定位）：
-${segmentsText}
-
-请以JSON格式输出：
-{
-  "knowledgePoints": [
-    {
-      "topic": "知识点主题",
-      "excerpt": "原文摘录",
-      "segmentId": "分段信息中提供的segmentId（必须准确匹配）",
-      "startTime": 0.20,
-      "endTime": 16.29,
-      "confidenceScore": 0.95,
-      "displayOrder": 1
-    }
-  ]
-}
-
-重要提示：
-- segmentId 必须从分段信息中准确复制，不能自己生成或使用时间段字符串
-- startTime 和 endTime 使用数字（秒），不是字符串
-- 如果分段信息中没有时间段，startTime 和 endTime 可以为 null`;
+${segmentsText}`;
 
     // 重试逻辑
     let lastError: Error | null = null;
@@ -267,7 +268,7 @@ ${segmentsText}
     }
 
     const model =
-      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+      this.configService.get<string>('moonshot.model') || 'moonshot-v1-8k';
 
     // 创建带超时的请求
     const requestPromise = this.client.chat.completions.create({
@@ -284,6 +285,7 @@ ${segmentsText}
       ],
       temperature: 0.3, // 较低温度，保证输出稳定性
       response_format: { type: 'json_object' },
+      max_tokens: 4000, // 增加最大 token 数，确保 JSON 不会被截断
     });
 
     // 使用 Promise.race 实现超时控制
@@ -570,7 +572,7 @@ ${textToUse}
 请直接返回标题，不要添加任何其他内容。`;
 
     const model =
-      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+      this.configService.get<string>('moonshot.model') || 'moonshot-v1-8k';
 
     try {
       const requestPromise = this.client.chat.completions.create({
@@ -806,7 +808,7 @@ ${excerpt}
 }`;
 
     const model =
-      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+      this.configService.get<string>('moonshot.model') || 'moonshot-v1-8k';
 
     // 检查并截断内容以适应 token 限制
     const estimatedTokens = this.estimateTokens(allSegmentsText);
@@ -975,7 +977,7 @@ ${segmentsTextToUse}
     }
 
     const model =
-      this.configService.get<string>('MOONSHOT_MODEL') || 'moonshot-v1-8k';
+      this.configService.get<string>('moonshot.model') || 'moonshot-v1-8k';
 
     const startTime = Date.now();
 

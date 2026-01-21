@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import type { UploadProps } from 'antd';
 import { submitVideo } from '@/api/video';
 import { createFromText } from '@/api/document';
+import { uploadPdf } from '@/api/pdf';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -19,6 +20,7 @@ const BILIBILI_REGEX =
 export default function Home() {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pdfUploading, setPdfUploading] = useState(false);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { openLoginModal } = useUIStore();
@@ -26,6 +28,7 @@ export default function Home() {
   // 文本字数统计
   const textCharCount = inputValue.length;
   const maxTextLength = 30000; // 3万字
+  const maxPdfSize = 50 * 1024 * 1024; // 50MB
 
   /**
    * 判断输入是否为视频链接
@@ -88,11 +91,42 @@ export default function Home() {
     }
   };
 
-  const handleUpload: UploadProps['customRequest'] = (options) => {
-    // TODO: 后续阶段实现PDF上传功能
-    message.info('PDF上传功能待实现');
-    if (options.onSuccess) {
-      options.onSuccess({});
+  const beforePdfUpload: UploadProps['beforeUpload'] = (file) => {
+    if (file.type !== 'application/pdf') {
+      message.error('只支持上传 PDF 文件');
+      return Upload.LIST_IGNORE;
+    }
+
+    if (file.size > maxPdfSize) {
+      message.error('PDF 文件大小不能超过 50MB');
+      return Upload.LIST_IGNORE;
+    }
+
+    return true;
+  };
+
+  const handlePdfUpload: UploadProps['customRequest'] = async (options) => {
+    const file = options.file as File;
+
+    if (!isAuthenticated) {
+      message.warning('请先登录');
+      openLoginModal();
+      options.onError?.(new Error('未登录'));
+      return;
+    }
+
+    try {
+      setPdfUploading(true);
+      const result = await uploadPdf(file);
+      message.success('PDF 上传成功，正在处理中...');
+      navigate(`/document/pdf/${result.documentId}`);
+      options.onSuccess?.(result);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'PDF 上传失败，请稍后重试';
+      message.error(errorMessage);
+      options.onError?.(new Error(errorMessage));
+    } finally {
+      setPdfUploading(false);
     }
   };
 
@@ -184,9 +218,11 @@ export default function Home() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <Upload
-                customRequest={handleUpload}
+                customRequest={handlePdfUpload}
+                beforeUpload={beforePdfUpload}
                 showUploadList={false}
-                accept=".pdf,.mp4,.mov,.avi"
+                accept=".pdf"
+                disabled={pdfUploading}
               >
                 <Button
                   type="text"
@@ -198,7 +234,7 @@ export default function Home() {
                     gap: '8px',
                   }}
                 >
-                  上传附件
+                  上传PDF
                 </Button>
               </Upload>
               {!isVideoUrl(inputValue) && (
@@ -223,6 +259,20 @@ export default function Home() {
           </div>
         </div>
       </Card>
+      <div style={{ width: '100%', maxWidth: '750px', marginTop: '16px' }}>
+        <Upload.Dragger
+          customRequest={handlePdfUpload}
+          beforeUpload={beforePdfUpload}
+          showUploadList={false}
+          accept=".pdf"
+          disabled={pdfUploading}
+        >
+          <p style={{ marginBottom: '4px' }}>拖拽 PDF 到这里，或点击上传</p>
+          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
+            单个文件不超过 50MB
+          </p>
+        </Upload.Dragger>
+      </div>
     </div>
   );
 }

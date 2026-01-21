@@ -16,7 +16,7 @@ export default function Header() {
   const { user, isAuthenticated, logout: logoutStore } = useAuthStore();
   const { openLoginModal } = useUIStore();
   const [isScrolled, setIsScrolled] = useState(false);
-  
+
   // 判断是否是首页
   const isHomePage = location.pathname === '/';
 
@@ -68,7 +68,7 @@ export default function Header() {
   const getUserName = () => {
     const name = user?.nickname || user?.phone || '';
     return name.length > 12 ? name.slice(0, 11) + '...' : name;
-  }
+  };
 
   return (
     <div
@@ -112,9 +112,7 @@ export default function Header() {
 
       {/* 右侧操作区 */}
       <Space size="middle" style={{ width: '120px', justifyContent: 'flex-end' }}>
-        <Button onClick={() => navigate('/records')}>
-          记录
-        </Button>
+        <Button onClick={() => navigate('/records')}>记录</Button>
         {isAuthenticated && user ? (
           <Dropdown menu={{ items: menuItems }} placement="bottomRight">
             <span style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>{getUserName()}</span>

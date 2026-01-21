@@ -35,9 +35,7 @@ export default function BilibiliCookieManage() {
   const [filteredCookies, setFilteredCookies] = useState<BilibiliCookie[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingCookie, setEditingCookie] = useState<BilibiliCookie | null>(
-    null,
-  );
+  const [editingCookie, setEditingCookie] = useState<BilibiliCookie | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [form] = Form.useForm();
 
@@ -112,11 +110,7 @@ export default function BilibiliCookieManage() {
       handleCloseModal();
       await loadCookies();
     } catch (error: unknown) {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'errorFields' in error
-      ) {
+      if (error && typeof error === 'object' && 'errorFields' in error) {
         return;
       }
       message.error(editingCookie ? '更新失败' : '创建失败');
@@ -257,27 +251,15 @@ export default function BilibiliCookieManage() {
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            onClick={() => handleOpenModal(record)}
-          >
+          <Button type="link" size="small" onClick={() => handleOpenModal(record)}>
             编辑
           </Button>
           {record.status === 'enabled' ? (
-            <Button
-              type="link"
-              size="small"
-              onClick={() => handleDisable(record._id)}
-            >
+            <Button type="link" size="small" onClick={() => handleDisable(record._id)}>
               禁用
             </Button>
           ) : (
-            <Button
-              type="link"
-              size="small"
-              onClick={() => handleEnable(record._id)}
-            >
+            <Button type="link" size="small" onClick={() => handleEnable(record._id)}>
               启用
             </Button>
           )}
@@ -310,32 +292,21 @@ export default function BilibiliCookieManage() {
               <p>
                 <strong>方式一：从 API 请求头复制 Cookie（推荐）</strong>
               </p>
-              <p>
-                1. 在浏览器中登录 B站，打开开发者工具（F12）
-              </p>
-              <p>
-                2. 切换到 Network（网络）标签，访问任意 B站页面或 API
-              </p>
-              <p>
-                3. 找到任意请求（如访问视频页面），点击查看请求详情
-              </p>
-              <p>
-                4. 在 Request Headers（请求头）中找到 Cookie 字段
-              </p>
+              <p>1. 在浏览器中登录 B站，打开开发者工具（F12）</p>
+              <p>2. 切换到 Network（网络）标签，访问任意 B站页面或 API</p>
+              <p>3. 找到任意请求（如访问视频页面），点击查看请求详情</p>
+              <p>4. 在 Request Headers（请求头）中找到 Cookie 字段</p>
               <p>
                 5. 复制 Cookie 的值（格式为：<code>key1=value1; key2=value2; ...</code>）
               </p>
-              <p>
-                6. 粘贴到下方的内容框中，系统会自动转换为 Netscape 格式
-              </p>
+              <p>6. 粘贴到下方的内容框中，系统会自动转换为 Netscape 格式</p>
               <p>
                 <strong>方式二：使用 yt-dlp 导出</strong>
               </p>
-              <p>
-                1. 在浏览器中登录 B站，使用 yt-dlp 导出 cookies：
-              </p>
+              <p>1. 在浏览器中登录 B站，使用 yt-dlp 导出 cookies：</p>
               <pre style={{ background: '#f5f5f5', padding: '8px', borderRadius: '4px' }}>
-                yt-dlp --cookies-from-browser chrome --cookies cookies.txt "https://www.bilibili.com"
+                yt-dlp --cookies-from-browser chrome --cookies cookies.txt
+                "https://www.bilibili.com"
               </pre>
               <p>2. 将 cookies.txt 文件内容复制到下方的内容框中</p>
               <p>
@@ -367,11 +338,7 @@ export default function BilibiliCookieManage() {
           </Space>
           <Space>
             <span>状态筛选：</span>
-            <Select
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-              style={{ width: 120 }}
-            >
+            <Select value={statusFilter} onChange={handleStatusFilterChange} style={{ width: 120 }}>
               <Select.Option value="all">全部</Select.Option>
               <Select.Option value="enabled">启用</Select.Option>
               <Select.Option value="disabled">禁用</Select.Option>
@@ -429,4 +396,3 @@ export default function BilibiliCookieManage() {
     </div>
   );
 }
-

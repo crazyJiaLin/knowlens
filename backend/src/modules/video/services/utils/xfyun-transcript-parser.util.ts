@@ -118,6 +118,7 @@ export class XfyunTranscriptParser {
     };
 
     if (typeof json1best === 'string') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       parsed = JSON.parse(json1best);
     } else if (typeof json1best === 'object') {
       parsed = json1best as typeof parsed;

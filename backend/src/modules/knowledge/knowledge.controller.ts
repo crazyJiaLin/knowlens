@@ -27,6 +27,7 @@ export class KnowledgeController {
   @HttpCode(HttpStatus.OK)
   async getKnowledgePoints(
     @Query('documentId') documentId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @CurrentUser('id') userId: string,
   ) {
     if (!documentId) {
@@ -77,6 +78,7 @@ export class KnowledgeController {
   @HttpCode(HttpStatus.OK)
   async getKnowledgePointById(
     @Param('id') id: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @CurrentUser('id') userId: string,
   ) {
     const knowledgePoint =

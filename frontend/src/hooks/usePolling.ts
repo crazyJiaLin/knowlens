@@ -67,6 +67,7 @@ export function usePolling<T>(callback: () => Promise<T>, options: UsePollingOpt
         intervalRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, interval]);
 
   // 手动触发轮询

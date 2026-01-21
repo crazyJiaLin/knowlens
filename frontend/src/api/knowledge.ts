@@ -35,48 +35,43 @@ export type KnowledgePointsResponse = {
 /**
  * 转换 Mongoose 文档的 _id 为 id
  */
-function transformMongooseDoc(doc: any): any {
+function transformMongooseDoc<T>(doc: T): T {
   if (!doc) return doc;
-  
+
   // 如果是数组，递归处理每个元素
   if (Array.isArray(doc)) {
-    return doc.map(transformMongooseDoc);
+    return doc.map(transformMongooseDoc) as T;
   }
-  
+
   // 如果是对象，转换 _id 为 id
   if (typeof doc === 'object') {
-    const transformed = { ...doc };
-    if (transformed._id) {
-      transformed.id = transformed._id.toString();
+    const transformed = { ...doc } as Record<string, unknown>;
+    if ('_id' in transformed) {
+      transformed.id = String(transformed._id);
       delete transformed._id;
     }
-    
+
     // 递归处理嵌套对象
     for (const key in transformed) {
       if (transformed[key] && typeof transformed[key] === 'object') {
         transformed[key] = transformMongooseDoc(transformed[key]);
       }
     }
-    
-    return transformed;
+
+    return transformed as T;
   }
-  
+
   return doc;
 }
 
 /**
  * 获取文档的知识点列表
  */
-export const getKnowledgePoints = async (
-  documentId: string
-): Promise<KnowledgePoint[]> => {
-  const response = await request.get<KnowledgePointsResponse>(
-    '/knowledge-points',
-    {
-      params: { documentId },
-    }
-  );
-  
+export const getKnowledgePoints = async (documentId: string): Promise<KnowledgePoint[]> => {
+  const response = await request.get<KnowledgePointsResponse>('/knowledge-points', {
+    params: { documentId },
+  });
+
   // 转换 _id 为 id
   const transformedData = transformMongooseDoc(response.data);
   return transformedData;
@@ -85,13 +80,16 @@ export const getKnowledgePoints = async (
 /**
  * 获取知识点详情
  */
-export const getKnowledgePointById = async (
-  id: string
-): Promise<KnowledgePoint> => {
+export const getKnowledgePointById = async (id: string): Promise<KnowledgePoint> => {
   const response = await request.get<{ success: boolean; data: KnowledgePoint }>(
     `/knowledge-points/${id}`
   );
-  return (response as any).data;
+  // 如果响应已经是 KnowledgePoint 类型（被 interceptor 解包了），直接返回
+  if ('topic' in (response as object)) {
+    return response as KnowledgePoint;
+  }
+  // 否则从 data 字段中提取
+  return (response as { data: KnowledgePoint }).data;
 };
 
 /**
@@ -109,4 +107,3 @@ export const regenerateKnowledgePoints = async (
   });
   return response.data;
 };
-

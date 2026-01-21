@@ -64,10 +64,10 @@ export default function TextDocument() {
     if (segments.length === 0) return [];
 
     const paragraphMap = new Map<number, Segment[]>();
-    
+
     // 按charStart排序
     const sortedSegments = [...segments].sort((a, b) => (a.charStart || 0) - (b.charStart || 0));
-    
+
     let currentParagraphIndex = 0;
     let lastCharEnd: number | null = null;
     const gapThreshold = 2; // 如果两个segment之间的间隔超过2个字符，认为是新行
@@ -75,7 +75,7 @@ export default function TextDocument() {
     for (const segment of sortedSegments) {
       const charStart = segment.charStart || 0;
       const charEnd = segment.charEnd || charStart;
-      
+
       // 如果当前segment的起始位置与上一个segment的结束位置间隔较大，认为是新行
       if (lastCharEnd !== null && charStart - lastCharEnd > gapThreshold) {
         currentParagraphIndex++;
@@ -85,7 +85,7 @@ export default function TextDocument() {
         paragraphMap.set(currentParagraphIndex, []);
       }
       paragraphMap.get(currentParagraphIndex)!.push(segment);
-      
+
       lastCharEnd = charEnd;
     }
 
@@ -103,9 +103,7 @@ export default function TextDocument() {
               <div>
                 <Text type="danger">文档处理失败</Text>
                 <br />
-                <Text type="secondary">
-                  {document.errorMessage || '未知错误'}
-                </Text>
+                <Text type="secondary">{document.errorMessage || '未知错误'}</Text>
               </div>
             }
           />
@@ -141,21 +139,16 @@ export default function TextDocument() {
     });
 
     if (targetParagraphIndex >= 0 && segmentsContainerRef.current) {
-      const paragraphElement = window.document.getElementById(
-        `paragraph-${targetParagraphIndex}`
-      );
+      const paragraphElement = window.document.getElementById(`paragraph-${targetParagraphIndex}`);
       if (paragraphElement && segmentsContainerRef.current) {
         // 计算目标元素相对于容器的位置
         const container = segmentsContainerRef.current;
         const containerRect = container.getBoundingClientRect();
         const elementRect = paragraphElement.getBoundingClientRect();
-        
+
         // 计算需要滚动的距离，使元素显示在容器中间偏上的位置（约1/3处）
         const scrollTop =
-          container.scrollTop +
-          elementRect.top -
-          containerRect.top -
-          containerRect.height / 3;
+          container.scrollTop + elementRect.top - containerRect.top - containerRect.height / 3;
 
         container.scrollTo({
           top: scrollTop,
@@ -286,16 +279,16 @@ export default function TextDocument() {
                   const hasHighlighted = paragraphSegments.some(
                     (seg) => highlightedSegmentId === seg.id
                   );
-                  
+
                   // 合并段落中所有segment的文本（保留换行符）
                   const paragraphText = paragraphSegments.map((seg) => seg.text).join('');
-                  
+
                   // 使用第一个segment的ID作为段落ID
                   const firstSegment = paragraphSegments[0];
                   const paragraphCharStart = firstSegment.charStart || 0;
                   const lastSegment = paragraphSegments[paragraphSegments.length - 1];
                   const paragraphCharEnd = lastSegment.charEnd || paragraphCharStart;
-                  
+
                   // 渲染带高亮的文本
                   const renderHighlightedText = () => {
                     if (!highlightedCharRange || !hasHighlighted) {
@@ -303,7 +296,7 @@ export default function TextDocument() {
                     }
 
                     const { charStart, charEnd } = highlightedCharRange;
-                    
+
                     // 检查高亮范围是否在当前段落内
                     if (charStart > paragraphCharEnd || charEnd < paragraphCharStart) {
                       return paragraphText;
@@ -341,7 +334,7 @@ export default function TextDocument() {
                       </>
                     );
                   };
-                  
+
                   return (
                     <div
                       key={`paragraph-${paragraphIndex}-${firstSegment.id}`}
@@ -395,4 +388,3 @@ export default function TextDocument() {
     </div>
   );
 }
-

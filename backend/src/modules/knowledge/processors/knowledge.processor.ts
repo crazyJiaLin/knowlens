@@ -250,6 +250,29 @@ export class KnowledgeProcessor extends WorkerHost {
         error,
       );
 
+      // 如果已经是最后一次重试，更新文档状态为 failed
+      if (job.attemptsMade >= (job.opts.attempts || 1)) {
+        this.logger.error(
+          `知识点生成任务已达到最大重试次数，将文档标记为失败: documentId=${documentId}`,
+        );
+        try {
+          await this.documentModel.updateOne(
+            { _id: documentId },
+            {
+              status: 'failed',
+              errorMessage:
+                error instanceof Error
+                  ? `知识点生成失败: ${error.message}`
+                  : '知识点生成失败',
+            },
+          );
+        } catch (updateError) {
+          this.logger.error(
+            `更新文档失败状态失败: ${updateError instanceof Error ? updateError.message : String(updateError)}`,
+          );
+        }
+      }
+
       // 重新抛出错误，让 BullMQ 处理重试
       throw error;
     }

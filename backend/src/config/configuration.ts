@@ -49,6 +49,9 @@ export default () => ({
     apiKey: process.env.MOONSHOT_API_KEY,
     baseURL: process.env.MOONSHOT_BASE_URL || 'https://api.moonshot.cn/v1',
     model: process.env.MOONSHOT_MODEL || 'moonshot-v1-k2',
+    timeout: parseInt(process.env.MOONSHOT_TIMEOUT || '60000', 10),
+    maxRetries: parseInt(process.env.MOONSHOT_MAX_RETRIES || '2', 10),
+    retryDelay: parseInt(process.env.MOONSHOT_RETRY_DELAY || '1000', 10),
   },
 
   // 科大讯飞

@@ -1,0 +1,79 @@
+/* 容器样式 */
+.container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.containerError {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 标题和进度条区域 */
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  margin-bottom: 16px;
+}
+
+.progressText {
+  font-size: 14px;
+  margin-top: 8px;
+  display: block;
+}
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.leftContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pdfCard {
+  height: fit-content;
+}
+
+.pdfControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pdfViewer {
+  max-height: 720px;
+  overflow: auto;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.pdfPageWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.pdfPageHighlight {
+  box-shadow: 0 0 0 3px #faad14;
+}
+
+.anchorHint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.knowledgeCard {
+  min-height: 800px;
+}

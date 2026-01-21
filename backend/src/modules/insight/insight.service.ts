@@ -94,7 +94,7 @@ export class InsightService {
       generationTimeMs,
     };
     if (typeof insightResult.tokensUsed === 'number') {
-      insightData.tokensUsed = insightResult.tokensUsed as number;
+      insightData.tokensUsed = insightResult.tokensUsed;
     }
 
     let insight: InsightDocument;
@@ -312,7 +312,6 @@ export class InsightService {
       generationTimeMs,
     };
     if (typeof streamResult.tokensUsed === 'number') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       insightData.tokensUsed = streamResult.tokensUsed;
     } else if (typeof insightResult.tokensUsed === 'number') {
       const tokensUsedValue: number = insightResult.tokensUsed;

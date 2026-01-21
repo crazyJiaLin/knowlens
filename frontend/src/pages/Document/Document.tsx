@@ -1,7 +1,7 @@
 import { useParams, Navigate } from 'react-router-dom';
-import { Spin } from 'antd';
 import VideoDocument from './VideoDocument';
 import TextDocument from './TextDocument';
+import PdfDocument from './PdfDocument';
 
 /**
  * 通用文档页面组件
@@ -20,15 +20,9 @@ export default function Document() {
   }
 
   if (type === 'pdf') {
-    // PDF 功能待实现
-    return (
-      <div style={{ padding: '24px' }}>
-        <Spin tip="PDF 功能待实现" />
-      </div>
-    );
+    return <PdfDocument />;
   }
 
   // 类型未知，跳转到记录页
   return <Navigate to="/records" replace />;
 }
-

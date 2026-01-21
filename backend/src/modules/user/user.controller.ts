@@ -59,10 +59,21 @@ export class UserController {
   @ApiResponse({ status: 200, description: '上传成功' })
   @ApiResponse({ status: 400, description: '文件格式错误或文件过大' })
   @ApiResponse({ status: 401, description: '未登录' })
-  async uploadAvatar(@User('id') userId: string, @UploadedFile() file: any) {
+  async uploadAvatar(
+    @User('id') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     if (!file) {
       throw new BadRequestException('请选择要上传的文件');
     }
+
+    // 修复中文文件名乱码（multer 默认使用 latin1 编码）
+    if (file.originalname) {
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString(
+        'utf8',
+      );
+    }
+
     return this.userService.uploadAvatar(userId, file);
   }
 }

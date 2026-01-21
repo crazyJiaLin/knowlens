@@ -100,7 +100,9 @@ export const getDocumentSegments = async (documentId: string): Promise<Segment[]
 /**
  * 删除文档
  */
-export const deleteDocument = async (documentId: string): Promise<{ success: boolean; message: string }> => {
+export const deleteDocument = async (
+  documentId: string
+): Promise<{ success: boolean; message: string }> => {
   return request.delete(`/document/${documentId}`);
 };
 

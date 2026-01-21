@@ -26,7 +26,7 @@ export type GenerateInsightResponse = {
 export const generateInsightStream = async (
   kpId: string,
   forceRegenerate: boolean,
-  onChunk: (chunk: Partial<Insight>) => void,
+  onChunk: (chunk: Partial<Insight>) => void
 ): Promise<Insight> => {
   // 确保 kpId 是字符串类型
   if (!kpId || typeof kpId !== 'string') {
@@ -36,7 +36,7 @@ export const generateInsightStream = async (
 
   const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
   const url = `${baseURL}/insight/generate-stream`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -56,7 +56,7 @@ export const generateInsightStream = async (
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();
-  
+
   if (!reader) {
     throw new Error('无法读取响应流');
   }
@@ -71,7 +71,7 @@ export const generateInsightStream = async (
   try {
     while (true) {
       const { done, value } = await reader.read();
-      
+
       if (done) {
         break;
       }
@@ -82,22 +82,22 @@ export const generateInsightStream = async (
 
       for (const line of lines) {
         if (line.trim() === '') continue;
-        
+
         if (line.startsWith('data: ')) {
           const data = line.slice(6); // 移除 'data: ' 前缀
-          
+
           if (data === '[DONE]') {
             break;
           }
 
           try {
             const parsed = JSON.parse(data);
-            
+
             // 检查是否有错误
             if (parsed.error) {
               throw new Error(parsed.error);
             }
-            
+
             // 更新结果
             if (parsed.logic !== undefined) {
               result.logic = parsed.logic;
@@ -123,29 +123,30 @@ export const generateInsightStream = async (
 
     // 处理剩余的 buffer
     if (buffer.trim()) {
-        if (buffer.startsWith('data: ')) {
-          const data = buffer.slice(6);
-          if (data !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(data);
-              
-              // 检查是否有错误
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-              
-              if (parsed.logic !== undefined) result.logic = parsed.logic;
-              if (parsed.hiddenInfo !== undefined) result.hiddenInfo = parsed.hiddenInfo;
-              if (parsed.extensionOptional !== undefined) result.extensionOptional = parsed.extensionOptional;
-              onChunk({ ...result });
-            } catch (e) {
-              if (e instanceof Error) {
-                throw e; // 重新抛出错误，让上层处理
-              }
-              console.warn('解析流式数据失败:', e);
+      if (buffer.startsWith('data: ')) {
+        const data = buffer.slice(6);
+        if (data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data);
+
+            // 检查是否有错误
+            if (parsed.error) {
+              throw new Error(parsed.error);
             }
+
+            if (parsed.logic !== undefined) result.logic = parsed.logic;
+            if (parsed.hiddenInfo !== undefined) result.hiddenInfo = parsed.hiddenInfo;
+            if (parsed.extensionOptional !== undefined)
+              result.extensionOptional = parsed.extensionOptional;
+            onChunk({ ...result });
+          } catch (e) {
+            if (e instanceof Error) {
+              throw e; // 重新抛出错误，让上层处理
+            }
+            console.warn('解析流式数据失败:', e);
           }
         }
+      }
     }
   } finally {
     reader.releaseLock();
@@ -159,10 +160,7 @@ export const generateInsightStream = async (
  * @param kpId 知识点ID
  * @param forceRegenerate 是否强制重新生成，默认 false
  */
-export const generateInsight = async (
-  kpId: string,
-  forceRegenerate = false
-): Promise<Insight> => {
+export const generateInsight = async (kpId: string, forceRegenerate = false): Promise<Insight> => {
   // 确保 kpId 是字符串类型
   if (!kpId || typeof kpId !== 'string') {
     console.error('generateInsight: 无效的知识点ID', { kpId, type: typeof kpId });
@@ -186,15 +184,15 @@ export const generateInsight = async (
     '/insight/generate',
     requestBody
   );
-  
+
   console.log('generateInsight: 收到响应', { response });
-  
+
   // 处理双重包装的情况
   if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-    return (response as any).data;
+    return (response as { data: Insight }).data;
   }
-  
-  return response as any;
+
+  return response as Insight;
 };
 
 /**
@@ -207,15 +205,13 @@ export const getInsight = async (kpId: string): Promise<Insight | null> => {
   }
 
   try {
-    const response = await request.get<{ success: boolean; data: Insight }>(
-      `/insight/${kpId}`
-    );
-    
+    const response = await request.get<{ success: boolean; data: Insight }>(`/insight/${kpId}`);
+
     if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-      return (response as any).data;
+      return (response as { data: Insight }).data;
     }
-    
-    return response as any;
+
+    return response as Insight;
   } catch (error) {
     // 如果洞察不存在，返回 null
     if (error instanceof Error && error.message.includes('404')) {
@@ -224,4 +220,3 @@ export const getInsight = async (kpId: string): Promise<Insight | null> => {
     throw error;
   }
 };
-

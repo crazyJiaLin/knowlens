@@ -233,7 +233,8 @@ export class DocumentService {
           }
         } catch (error) {
           // 删除文件失败不影响删除文档，只记录日志
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           this.logger.warn(`删除PDF文件失败: ${errorMessage}`);
         }
       }
@@ -245,15 +246,15 @@ export class DocumentService {
 
       // 3. 删除所有相关的洞察（通过知识点ID）
       if (knowledgePoints.length > 0) {
-        const knowledgePointIds = knowledgePoints.map((kp) => kp._id.toString());
+        const knowledgePointIds = knowledgePoints.map((kp) =>
+          kp._id.toString(),
+        );
         await this.insightModel
           .deleteMany({
             knowledgePointId: { $in: knowledgePointIds },
           })
           .exec();
-        this.logger.log(
-          `已删除 ${knowledgePointIds.length} 个洞察`,
-        );
+        this.logger.log(`已删除 ${knowledgePointIds.length} 个洞察`);
       }
 
       // 4. 删除所有知识点
@@ -270,7 +271,8 @@ export class DocumentService {
       await this.documentModel.deleteOne({ _id: documentId }).exec();
       this.logger.log(`已删除文档: ${documentId}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.error(`删除文档失败: ${errorMessage}`);
       throw new Error(`删除文档失败: ${errorMessage}`);
     }
@@ -309,7 +311,8 @@ export class DocumentService {
       // OSS URL，直接返回路径
       return pathname || null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.logger.warn(`解析URL失败: ${url}, 错误: ${errorMessage}`);
       return null;
     }
@@ -335,9 +338,7 @@ export class DocumentService {
     const wordCount = text.length;
 
     // 如果用户提供了标题，使用用户提供的；否则使用临时标题，等待AI生成
-    const documentTitle = title && title.trim() 
-      ? title.trim() 
-      : '解析中...'; // 临时标题，将在知识点生成任务中由AI生成
+    const documentTitle = title && title.trim() ? title.trim() : '解析中...'; // 临时标题，将在知识点生成任务中由AI生成
 
     // 创建文档记录
     const document = await this.documentModel.create({
@@ -396,7 +397,8 @@ export class DocumentService {
       };
     } catch (error) {
       // 如果处理失败，更新文档状态
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       await this.documentModel.updateOne(
         { _id: documentId },
         {

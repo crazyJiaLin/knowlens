@@ -32,6 +32,7 @@ export class DocumentController {
   constructor(
     private readonly documentService: DocumentService,
     @InjectQueue('video-queue') private videoQueue: Queue,
+    @InjectQueue('pdf-queue') private pdfQueue: Queue,
     @InjectQueue('knowledge-queue') private knowledgeQueue: Queue,
   ) {}
 
@@ -95,6 +96,16 @@ export class DocumentController {
             j.data &&
             (j.data as { documentId?: string }).documentId === documentId,
         );
+
+        // 如果没找到，再查找 pdf-queue 中的任务
+        if (!job) {
+          const pdfJobs = await this.pdfQueue.getJobs(['active', 'waiting']);
+          job = pdfJobs.find(
+            (j) =>
+              j.data &&
+              (j.data as { documentId?: string }).documentId === documentId,
+          );
+        }
 
         // 如果没找到，再查找 knowledge-queue 中的任务
         if (!job) {

@@ -19,6 +19,7 @@ interface KnowledgeCardProps {
   onJumpToTime?: (seconds: number) => void;
   onHighlightSegment?: (segmentIndex: number) => void;
   onJumpToChar?: (charStart: number, charEnd?: number) => void;
+  onJumpToPdf?: (page: number, startOffset?: number, endOffset?: number) => void;
   highlightedKnowledgePointId?: string | null;
 }
 
@@ -30,6 +31,7 @@ export default function KnowledgeCard({
   onJumpToTime,
   onHighlightSegment,
   onJumpToChar,
+  onJumpToPdf,
   highlightedKnowledgePointId,
 }: KnowledgeCardProps) {
   const [knowledgePoints, setKnowledgePoints] = useState<KnowledgePoint[]>([]);
@@ -37,9 +39,7 @@ export default function KnowledgeCard({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   // 使用 Set 来跟踪多个知识点的展开状态，每个知识点独立
-  const [expandedInsightIds, setExpandedInsightIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedInsightIds, setExpandedInsightIds] = useState<Set<string>>(new Set());
   // 用于存储轮询定时器，以便清理
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -79,7 +79,7 @@ export default function KnowledgeCard({
     try {
       await regenerateKnowledgePoints(documentId);
       message.success('知识点重新生成任务已提交，请稍候...');
-      
+
       // 等待一段时间后重新加载知识点
       // 由于是异步任务，需要轮询检查
       // 先清理之前的轮询
@@ -101,10 +101,7 @@ export default function KnowledgeCard({
             }
             const transformedPoints = points.map((point) => ({
               ...point,
-              id:
-                point.id ||
-                (point as { _id?: { toString: () => string } })._id?.toString() ||
-                '',
+              id: point.id || (point as { _id?: { toString: () => string } })._id?.toString() || '',
             }));
             setKnowledgePoints(transformedPoints);
             setIsRegenerating(false);
@@ -128,8 +125,7 @@ export default function KnowledgeCard({
       }, 2000); // 每2秒检查一次
     } catch (err) {
       console.error('重新生成知识点失败:', err);
-      const errorMsg =
-        err instanceof Error ? err.message : '重新生成知识点失败，请稍后重试';
+      const errorMsg = err instanceof Error ? err.message : '重新生成知识点失败，请稍后重试';
       message.error(errorMsg);
       setError(err instanceof Error ? err : new Error(errorMsg));
       setIsRegenerating(false);
@@ -152,10 +148,7 @@ export default function KnowledgeCard({
       // 确保每个知识点都有 id 字段
       const transformedPoints = points.map((point) => ({
         ...point,
-        id:
-          point.id ||
-          (point as { _id?: { toString: () => string } })._id?.toString() ||
-          '',
+        id: point.id || (point as { _id?: { toString: () => string } })._id?.toString() || '',
       }));
       console.log('转换后的知识点数据:', transformedPoints);
       setKnowledgePoints(transformedPoints);
@@ -170,9 +163,8 @@ export default function KnowledgeCard({
   // 如果文档还在处理中，显示等待状态
   if (documentStatus !== 'completed') {
     // 如果进度 >= 70%，说明原文已处理完成，正在生成知识点
-    const waitingText =
-      progress >= 70 ? '正在生成知识点...' : '等待原文处理完成...';
-    
+    const waitingText = progress >= 70 ? '正在生成知识点...' : '等待原文处理完成...';
+
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
         <div>
@@ -210,15 +202,11 @@ export default function KnowledgeCard({
     // 检查是否是生成失败（文档已完成但无知识点）
     const isGenerationFailed =
       documentStatus === 'completed' && !isLoading && !isRegenerating && !error;
-    
+
     return (
       <Card title="知识点" className={styles.knowledgeCard}>
         <Empty
-          description={
-            isGenerationFailed
-              ? '知识点生成失败，请重试'
-              : '知识点生成中，请稍候...'
-          }
+          description={isGenerationFailed ? '知识点生成失败，请重试' : '知识点生成中，请稍候...'}
         >
           {isGenerationFailed && (
             <Button type="primary" onClick={handleRegenerate}>
@@ -240,6 +228,12 @@ export default function KnowledgeCard({
     // 文本类型：跳转到字符位置
     if (sourceAnchor.type === 'text' && sourceAnchor.startOffset !== undefined && onJumpToChar) {
       onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
+      return;
+    }
+
+    // PDF 类型：跳转到页码
+    if (sourceAnchor.type === 'pdf' && sourceAnchor.page !== undefined && onJumpToPdf) {
+      onJumpToPdf(sourceAnchor.page, sourceAnchor.startOffset, sourceAnchor.endOffset);
       return;
     }
 
@@ -281,7 +275,6 @@ export default function KnowledgeCard({
     });
   };
 
-
   // 显示知识点列表（保持原始顺序）
   return (
     <Card title="知识点" className={styles.knowledgeCard}>
@@ -292,25 +285,23 @@ export default function KnowledgeCard({
 
           return (
             <div key={point.id} className={styles.knowledgePointItem}>
-            <div
-              className={`${styles.knowledgePointCard} ${
-                isHighlighted ? styles.knowledgePointCardHighlighted : ''
+              <div
+                className={`${styles.knowledgePointCard} ${
+                  isHighlighted ? styles.knowledgePointCardHighlighted : ''
                 } ${isExpanded ? styles.knowledgePointCardExpanded : ''}`}
-            >
-              <div className={styles.knowledgePointHeader}>
-                <Title level={5} className={styles.knowledgePointTopic}>
-                  {point.topic}
-                </Title>
-                        </div>
+              >
+                <div className={styles.knowledgePointHeader}>
+                  <Title level={5} className={styles.knowledgePointTopic}>
+                    {point.topic}
+                  </Title>
+                </div>
                 <div className={styles.knowledgePointExcerptWrapper}>
                   <Text
                     className={styles.knowledgePointExcerpt}
                     onClick={() => handleExcerptClick(point)}
-                        >
+                  >
                     {point.excerpt}{' '}
-                    <span className={styles.knowledgePointBadge}>
-                      [{index + 1}]
-                    </span>
+                    <span className={styles.knowledgePointBadge}>[{index + 1}]</span>
                   </Text>
                   <div className={styles.insightButtonWrapper}>
                     <Button

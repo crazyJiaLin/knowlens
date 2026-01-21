@@ -13,6 +13,7 @@ import { InsightModule } from './modules/insight/insight.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { VideoModule } from './modules/video/video.module';
 import { CommonModule } from './common/common.module';
+import { PdfModule } from './modules/pdf/pdf.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { CommonModule } from './common/common.module';
     AuthModule,
     VideoModule,
     CommonModule,
+    PdfModule,
   ],
   controllers: [AppController],
   providers: [AppService],

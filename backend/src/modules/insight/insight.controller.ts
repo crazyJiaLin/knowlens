@@ -62,7 +62,8 @@ export class InsightController {
       throw new BadRequestException('kpId 参数必填');
     }
 
-    const insight = await this.insightService.getInsightByKnowledgePointId(kpId);
+    const insight =
+      await this.insightService.getInsightByKnowledgePointId(kpId);
 
     if (!insight) {
       throw new NotFoundException('洞察不存在');

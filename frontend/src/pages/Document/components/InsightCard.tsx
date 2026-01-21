@@ -46,8 +46,11 @@ export default function InsightCard({
 
     try {
       const existingInsight = await getInsight(knowledgePointId);
-      
-      if (existingInsight && (existingInsight.logic || existingInsight.hiddenInfo || existingInsight.extensionOptional)) {
+
+      if (
+        existingInsight &&
+        (existingInsight.logic || existingInsight.hiddenInfo || existingInsight.extensionOptional)
+      ) {
         // 如果获取到洞察，停止轮询
         if (pollingTimerRef.current) {
           clearInterval(pollingTimerRef.current);
@@ -126,45 +129,39 @@ export default function InsightCard({
     }, 3000);
 
     try {
-      await generateInsightStream(
-        knowledgePointId,
-        forceRegenerate,
-        (chunk) => {
-          // 清除超时提示（如果已经开始接收数据）
-          if (timeoutTimerRef.current) {
-            clearTimeout(timeoutTimerRef.current);
-            timeoutTimerRef.current = null;
-            setShowTimeoutModal(false);
-          }
-
-          // 实时更新洞察内容
-          setInsight((prev) => {
-            const current = prev || {
-              logic: '',
-              hiddenInfo: '',
-              extensionOptional: '',
-            };
-
-            const updated: Insight = {
-              logic: chunk.logic !== undefined ? chunk.logic : current.logic,
-              hiddenInfo:
-                chunk.hiddenInfo !== undefined
-                  ? chunk.hiddenInfo
-                  : current.hiddenInfo,
-              extensionOptional:
-                chunk.extensionOptional !== undefined
-                  ? chunk.extensionOptional
-                  : current.extensionOptional,
-              tokensUsed: chunk.tokensUsed !== undefined ? chunk.tokensUsed : current.tokensUsed,
-              generationTimeMs: chunk.generationTimeMs !== undefined 
-                ? chunk.generationTimeMs 
-                : current.generationTimeMs,
-            };
-
-            return updated;
-          });
+      await generateInsightStream(knowledgePointId, forceRegenerate, (chunk) => {
+        // 清除超时提示（如果已经开始接收数据）
+        if (timeoutTimerRef.current) {
+          clearTimeout(timeoutTimerRef.current);
+          timeoutTimerRef.current = null;
+          setShowTimeoutModal(false);
         }
-      );
+
+        // 实时更新洞察内容
+        setInsight((prev) => {
+          const current = prev || {
+            logic: '',
+            hiddenInfo: '',
+            extensionOptional: '',
+          };
+
+          const updated: Insight = {
+            logic: chunk.logic !== undefined ? chunk.logic : current.logic,
+            hiddenInfo: chunk.hiddenInfo !== undefined ? chunk.hiddenInfo : current.hiddenInfo,
+            extensionOptional:
+              chunk.extensionOptional !== undefined
+                ? chunk.extensionOptional
+                : current.extensionOptional,
+            tokensUsed: chunk.tokensUsed !== undefined ? chunk.tokensUsed : current.tokensUsed,
+            generationTimeMs:
+              chunk.generationTimeMs !== undefined
+                ? chunk.generationTimeMs
+                : current.generationTimeMs,
+          };
+
+          return updated;
+        });
+      });
 
       // 更新最终耗时
       if (generationStartTime) {
@@ -187,8 +184,7 @@ export default function InsightCard({
       }
 
       console.error('生成洞察失败:', error);
-      const errorMsg =
-        error instanceof Error ? error.message : '生成洞察失败，请稍后重试';
+      const errorMsg = error instanceof Error ? error.message : '生成洞察失败，请稍后重试';
       message.error(errorMsg);
       setError(errorMsg);
       setInsight(null);
@@ -262,10 +258,7 @@ export default function InsightCard({
                   size="small"
                   style={{ width: 80, height: 20, marginBottom: 8 }}
                 />
-                <Skeleton
-                  active
-                  paragraph={{ rows: 3, width: ['100%', '100%', '90%'] }}
-                />
+                <Skeleton active paragraph={{ rows: 3, width: ['100%', '100%', '90%'] }} />
               </div>
               <div className={styles.insightSection}>
                 <Skeleton.Input
@@ -273,10 +266,7 @@ export default function InsightCard({
                   size="small"
                   style={{ width: 80, height: 20, marginBottom: 8 }}
                 />
-                <Skeleton
-                  active
-                  paragraph={{ rows: 2, width: ['100%', '95%'] }}
-                />
+                <Skeleton active paragraph={{ rows: 2, width: ['100%', '95%'] }} />
               </div>
               <div className={styles.insightSection}>
                 <Skeleton.Input
@@ -284,10 +274,7 @@ export default function InsightCard({
                   size="small"
                   style={{ width: 80, height: 20, marginBottom: 8 }}
                 />
-                <Skeleton
-                  active
-                  paragraph={{ rows: 2, width: ['100%', '90%'] }}
-                />
+                <Skeleton active paragraph={{ rows: 2, width: ['100%', '90%'] }} />
               </div>
             </div>
           ) : isBackgroundMode ? (
@@ -317,17 +304,20 @@ export default function InsightCard({
             <div className={styles.insightContent}>
               {/* 生成统计信息 */}
               {(insight.generationTimeMs !== undefined || insight.tokensUsed !== undefined) && (
-                <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f5f5f5', borderRadius: 4 }}>
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: '8px 12px',
+                    background: '#f5f5f5',
+                    borderRadius: 4,
+                  }}
+                >
                   <Space size="middle" style={{ fontSize: 12 }}>
                     {insight.generationTimeMs !== undefined && (
-                      <Text type="secondary">
-                        耗时: {formatTime(insight.generationTimeMs)}
-                      </Text>
+                      <Text type="secondary">耗时: {formatTime(insight.generationTimeMs)}</Text>
                     )}
                     {insight.tokensUsed !== undefined && (
-                      <Text type="secondary">
-                        Token: {insight.tokensUsed.toLocaleString()}
-                      </Text>
+                      <Text type="secondary">Token: {insight.tokensUsed.toLocaleString()}</Text>
                     )}
                   </Space>
                 </div>
@@ -341,17 +331,14 @@ export default function InsightCard({
                   </Title>
                   <Text className={styles.sectionContent}>{insight.logic}</Text>
                 </div>
-              ) : (isLoading || isRegenerating) ? (
+              ) : isLoading || isRegenerating ? (
                 <div className={styles.insightSection}>
                   <Skeleton.Input
                     active
                     size="small"
                     style={{ width: 80, height: 20, marginBottom: 8 }}
                   />
-                  <Skeleton
-                    active
-                    paragraph={{ rows: 3, width: ['100%', '100%', '90%'] }}
-                  />
+                  <Skeleton active paragraph={{ rows: 3, width: ['100%', '100%', '90%'] }} />
                 </div>
               ) : null}
 
@@ -361,11 +348,17 @@ export default function InsightCard({
                   <Title level={5} className={styles.sectionTitle}>
                     隐含信息
                   </Title>
-                  <Text 
+                  <Text
                     className={styles.sectionContent}
-                    style={onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}}
+                    style={
+                      onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}
+                    }
                     onClick={() => {
-                      if (onJumpToChar && sourceAnchor?.type === 'text' && sourceAnchor.startOffset !== undefined) {
+                      if (
+                        onJumpToChar &&
+                        sourceAnchor?.type === 'text' &&
+                        sourceAnchor.startOffset !== undefined
+                      ) {
                         onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
                       }
                     }}
@@ -373,17 +366,14 @@ export default function InsightCard({
                     {insight.hiddenInfo}
                   </Text>
                 </div>
-              ) : (isLoading || isRegenerating) ? (
+              ) : isLoading || isRegenerating ? (
                 <div className={styles.insightSection}>
                   <Skeleton.Input
                     active
                     size="small"
                     style={{ width: 80, height: 20, marginBottom: 8 }}
                   />
-                  <Skeleton
-                    active
-                    paragraph={{ rows: 2, width: ['100%', '95%'] }}
-                  />
+                  <Skeleton active paragraph={{ rows: 2, width: ['100%', '95%'] }} />
                 </div>
               ) : null}
 
@@ -393,11 +383,17 @@ export default function InsightCard({
                   <Title level={5} className={styles.sectionTitle}>
                     延伸思考
                   </Title>
-                  <Text 
+                  <Text
                     className={styles.sectionContent}
-                    style={onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}}
+                    style={
+                      onJumpToChar && sourceAnchor?.type === 'text' ? { cursor: 'pointer' } : {}
+                    }
                     onClick={() => {
-                      if (onJumpToChar && sourceAnchor?.type === 'text' && sourceAnchor.startOffset !== undefined) {
+                      if (
+                        onJumpToChar &&
+                        sourceAnchor?.type === 'text' &&
+                        sourceAnchor.startOffset !== undefined
+                      ) {
                         onJumpToChar(sourceAnchor.startOffset, sourceAnchor.endOffset);
                       }
                     }}
@@ -405,17 +401,14 @@ export default function InsightCard({
                     {insight.extensionOptional}
                   </Text>
                 </div>
-              ) : (isLoading || isRegenerating) ? (
+              ) : isLoading || isRegenerating ? (
                 <div className={styles.insightSection}>
                   <Skeleton.Input
                     active
                     size="small"
                     style={{ width: 80, height: 20, marginBottom: 8 }}
                   />
-                  <Skeleton
-                    active
-                    paragraph={{ rows: 2, width: ['100%', '90%'] }}
-                  />
+                  <Skeleton active paragraph={{ rows: 2, width: ['100%', '90%'] }} />
                 </div>
               ) : null}
 
@@ -462,10 +455,7 @@ export default function InsightCard({
           >
             后台生成
           </Button>
-          <Button
-            type="primary"
-            onClick={() => handleGenerate(false, true)}
-          >
+          <Button type="primary" onClick={() => handleGenerate(false, true)}>
             继续等待
           </Button>
         </Space>

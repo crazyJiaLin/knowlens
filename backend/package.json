@@ -52,6 +52,7 @@
     "openai": "^6.9.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "^2.4.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "youtube-transcript": "^1.2.1"

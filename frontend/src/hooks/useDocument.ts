@@ -75,7 +75,7 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
       const docStatus = await getDocumentStatus(documentId);
       const previousStatus = status?.status;
       setStatus(docStatus);
-      
+
       // 更新进度
       if (docStatus.progress !== undefined) {
         setProgress(docStatus.progress);
@@ -103,6 +103,7 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
     if (documentId && enabled) {
       void loadDocument();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, enabled]);
 
   // 当进度 >= 70% 或文档已完成时，加载片段（片段在70%时已保存到数据库）
@@ -124,8 +125,8 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
       return;
     }
 
-    // 如果文档已完成，停止轮询
-    if (status?.status === 'completed') {
+    // 如果文档已完成或失败，停止轮询
+    if (status?.status === 'completed' || status?.status === 'failed') {
       return;
     }
 
@@ -136,6 +137,7 @@ export function useDocument(documentId: string | null, options: UseDocumentOptio
     return () => {
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId, enabled, autoPoll, status?.status, pollInterval]);
 
   return {

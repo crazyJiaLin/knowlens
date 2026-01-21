@@ -41,9 +41,7 @@ export async function getBilibiliCookie(id: string): Promise<BilibiliCookie> {
 /**
  * 创建 B站 cookie
  */
-export async function createBilibiliCookie(
-  data: CreateBilibiliCookieDto,
-): Promise<BilibiliCookie> {
+export async function createBilibiliCookie(data: CreateBilibiliCookieDto): Promise<BilibiliCookie> {
   return request.post('/bilibili-cookies', data);
 }
 
@@ -52,7 +50,7 @@ export async function createBilibiliCookie(
  */
 export async function updateBilibiliCookie(
   id: string,
-  data: UpdateBilibiliCookieDto,
+  data: UpdateBilibiliCookieDto
 ): Promise<BilibiliCookie> {
   return request.put(`/bilibili-cookies/${id}`, data);
 }
@@ -60,18 +58,14 @@ export async function updateBilibiliCookie(
 /**
  * 启用 B站 cookie
  */
-export async function enableBilibiliCookie(
-  id: string,
-): Promise<BilibiliCookie> {
+export async function enableBilibiliCookie(id: string): Promise<BilibiliCookie> {
   return request.put(`/bilibili-cookies/${id}/enable`);
 }
 
 /**
  * 禁用 B站 cookie
  */
-export async function disableBilibiliCookie(
-  id: string,
-): Promise<BilibiliCookie> {
+export async function disableBilibiliCookie(id: string): Promise<BilibiliCookie> {
   return request.put(`/bilibili-cookies/${id}/disable`);
 }
 
@@ -81,4 +75,3 @@ export async function disableBilibiliCookie(
 export async function deleteBilibiliCookie(id: string): Promise<void> {
   return request.delete(`/bilibili-cookies/${id}`);
 }
-

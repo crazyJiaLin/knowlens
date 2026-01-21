@@ -40,7 +40,6 @@
   color: #3baf9f;
 }
 
-
 .insightContent {
   display: flex;
   flex-direction: column;
@@ -108,4 +107,3 @@
 .retryButton {
   margin-top: 8px;
 }
-

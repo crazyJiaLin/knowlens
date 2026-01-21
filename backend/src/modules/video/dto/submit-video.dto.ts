@@ -1,4 +1,4 @@
-import { IsString, IsUrl, Matches } from 'class-validator';
+import { IsString, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SubmitVideoDto {

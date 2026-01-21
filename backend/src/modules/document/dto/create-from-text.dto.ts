@@ -21,4 +21,3 @@ export class CreateFromTextDto {
   @IsString()
   title?: string;
 }
-
