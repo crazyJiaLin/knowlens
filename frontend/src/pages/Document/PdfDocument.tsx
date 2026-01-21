@@ -39,20 +39,75 @@ export default function PdfDocument() {
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    // 初始化宽度
+    const initialWidth = Math.min(containerRef.current.clientWidth - 24, 900);
+    setPageWidth(initialWidth);
+
+    // 使用防抖优化 ResizeObserver，避免频繁更新
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
-        setPageWidth(Math.min(entry.contentRect.width - 24, 900));
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const newWidth = Math.min(entry.contentRect.width - 24, 900);
+          // 只有宽度变化超过 10px 才更新，避免小幅抖动
+          setPageWidth((prev) => {
+            if (prev === undefined || Math.abs(newWidth - prev) > 10) {
+              return newWidth;
+            }
+            return prev;
+          });
+        }, 150); // 150ms 防抖
       }
     });
     observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
   }, []);
 
+  // 所有 useMemo/useCallback hooks 必须在所有 return 之前
   const showPdf = useMemo(() => {
     if (!document) return false;
     return !!document.originalUrl;
   }, [document]);
+
+  // 稳定的 PDF 配置对象，避免每次渲染都创建新对象
+  const pdfFile = useMemo(
+    () => ({
+      url: document?.originalUrl || '',
+      httpHeaders: {
+        Accept: 'application/pdf',
+      },
+      withCredentials: false,
+    }),
+    [document?.originalUrl]
+  );
+
+  const pdfOptions = useMemo(
+    () => ({
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
+    }),
+    []
+  );
+
+  const isProcessing = useMemo(() => status?.status === 'processing', [status?.status]);
+  const progressPercent = useMemo(() => progress || 0, [progress]);
+
+  const progressText = useMemo(() => {
+    if (status?.status !== 'processing') {
+      return '处理完成';
+    }
+    if (status?.message) {
+      return status.message;
+    }
+    return '处理中...';
+  }, [status]);
 
   if (document?.status === 'failed') {
     return (
@@ -91,19 +146,6 @@ export default function PdfDocument() {
       </div>
     );
   }
-
-  const isProcessing = status?.status === 'processing';
-  const progressPercent = progress || 0;
-
-  const getProgressText = (): string => {
-    if (!isProcessing) {
-      return '处理完成';
-    }
-    if (status?.message) {
-      return status.message;
-    }
-    return '处理中...';
-  };
 
   const handleDocumentLoadSuccess = ({ numPages: total }: { numPages: number }) => {
     console.log('PDF 加载成功，总页数:', total);
@@ -152,7 +194,7 @@ export default function PdfDocument() {
               format={(percent) => `${percent}%`}
             />
             <Text type="secondary" className={styles.progressText}>
-              {getProgressText()}
+              {progressText}
             </Text>
           </div>
         )}
@@ -197,33 +239,21 @@ export default function PdfDocument() {
 
             <div className={styles.pdfViewer}>
               {!showPdf ? (
-                <Skeleton active paragraph={{ rows: 6 }} />
+                <Skeleton active paragraph={{ rows: 18 }} />
               ) : (
                 <PdfViewer
-                  file={{
-                    url: document.originalUrl,
-                    httpHeaders: {
-                      Accept: 'application/pdf',
-                    },
-                    withCredentials: false,
-                  }}
+                  file={pdfFile}
                   onLoadSuccess={handleDocumentLoadSuccess}
                   onLoadError={handleDocumentLoadError}
-                  loading={<Skeleton active paragraph={{ rows: 6 }} />}
-                  options={{
-                    cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
-                    cMapPacked: true,
-                    standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/',
-                  }}
+                  loading={<Skeleton active paragraph={{ rows: 18 }} />}
+                  options={pdfOptions}
                 >
-                  <div className={styles.pdfPageWrapper}>
-                    <Page
-                      pageNumber={pageNumber}
-                      width={pageWidth}
-                      className={
-                        anchorInfo?.page === pageNumber ? styles.pdfPageHighlight : undefined
-                      }
-                    />
+                  <div
+                    className={`${styles.pdfPageWrapper} ${
+                      anchorInfo?.page === pageNumber ? styles.pdfPageHighlight : ''
+                    }`}
+                  >
+                    <Page pageNumber={pageNumber} width={pageWidth} />
                   </div>
                 </PdfViewer>
               )}

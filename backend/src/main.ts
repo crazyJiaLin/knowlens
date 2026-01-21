@@ -16,11 +16,6 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const logger = new Logger('Bootstrap');
 
-  // 配置静态文件服务（用于访问本地上传的文件）
-  app.useStaticAssets(join(process.cwd(), 'uploadFile'), {
-    prefix: '/uploadFile',
-  });
-
   // 数据库连接错误处理
   const connection = app.get<Connection>(getConnectionToken());
   connection.on('error', (err: Error) => {
@@ -47,7 +42,20 @@ async function bootstrap() {
     origin: corsOriginConfig,
     credentials: true, // 重要：允许携带 cookie
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Accept', 'Range'],
+    exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
+  });
+
+  // 配置静态文件服务（用于访问本地上传的文件）
+  // 放在 CORS 之后，确保静态文件也能跨域访问
+  app.useStaticAssets(join(process.cwd(), 'uploadFile'), {
+    prefix: '/uploadFile',
+    // 启用 CORS 和范围请求支持（PDF 预览需要）
+    setHeaders: (res: { set: (key: string, value: string) => void }) => {
+      res.set('Access-Control-Allow-Origin', corsOriginConfig as string);
+      res.set('Access-Control-Allow-Credentials', 'true');
+      res.set('Accept-Ranges', 'bytes');
+    },
   });
 
   // 全局前缀

@@ -4,7 +4,7 @@ import { generateInsightStream, getInsight, type Insight } from '@/api/insight';
 import type { SourceAnchor } from '@/api/knowledge';
 import styles from './InsightCard.module.css';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface InsightCardProps {
   knowledgePointId: string;
@@ -326,9 +326,9 @@ export default function InsightCard({
               {/* 逻辑演绎 */}
               {insight.logic ? (
                 <div className={styles.insightSection}>
-                  <Title level={5} className={styles.sectionTitle}>
+                  {/* <Title level={5} className={styles.sectionTitle}>
                     逻辑演绎
-                  </Title>
+                  </Title> */}
                   <Text className={styles.sectionContent}>{insight.logic}</Text>
                 </div>
               ) : isLoading || isRegenerating ? (
@@ -345,9 +345,9 @@ export default function InsightCard({
               {/* 隐含信息 */}
               {insight.hiddenInfo ? (
                 <div className={styles.insightSection}>
-                  <Title level={5} className={styles.sectionTitle}>
+                  {/* <Title level={5} className={styles.sectionTitle}>
                     隐含信息
-                  </Title>
+                  </Title> */}
                   <Text
                     className={styles.sectionContent}
                     style={
@@ -380,9 +380,9 @@ export default function InsightCard({
               {/* 延伸思考 */}
               {insight.extensionOptional ? (
                 <div className={styles.insightSection}>
-                  <Title level={5} className={styles.sectionTitle}>
+                  {/* <Title level={5} className={styles.sectionTitle}>
                     延伸思考
-                  </Title>
+                  </Title> */}
                   <Text
                     className={styles.sectionContent}
                     style={

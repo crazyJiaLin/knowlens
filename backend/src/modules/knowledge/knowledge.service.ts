@@ -34,14 +34,45 @@ export class KnowledgeService {
 
   /**
    * 获取文档的知识点列表
+   * PDF 类型按页码和偏移量排序，其他类型按 displayOrder 排序
    */
   async getKnowledgePointsByDocumentId(
     documentId: string,
   ): Promise<KnowledgePointDocument[]> {
-    return this.knowledgePointModel
+    const knowledgePoints = await this.knowledgePointModel
       .find({ documentId })
-      .sort({ displayOrder: 1 })
       .exec();
+
+    // 如果没有数据，直接返回
+    if (knowledgePoints.length === 0) {
+      return knowledgePoints;
+    }
+
+    // 检查第一个知识点的类型
+    const firstKp = knowledgePoints[0];
+    const isPdf = firstKp.sourceAnchor?.type === 'pdf';
+
+    if (isPdf) {
+      // PDF 类型：按页码和偏移量排序
+      return knowledgePoints.sort((a, b) => {
+        const pageA = a.sourceAnchor?.page || 0;
+        const pageB = b.sourceAnchor?.page || 0;
+        if (pageA !== pageB) {
+          return pageA - pageB;
+        }
+        // 页码相同，按 startOffset 排序
+        const offsetA = a.sourceAnchor?.startOffset || 0;
+        const offsetB = b.sourceAnchor?.startOffset || 0;
+        return offsetA - offsetB;
+      });
+    } else {
+      // 其他类型：按 displayOrder 排序
+      return knowledgePoints.sort((a, b) => {
+        const orderA = a.displayOrder || 0;
+        const orderB = b.displayOrder || 0;
+        return orderA - orderB;
+      });
+    }
   }
 
   /**

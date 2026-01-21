@@ -259,7 +259,7 @@ export default function Home() {
           </div>
         </div>
       </Card>
-      <div style={{ width: '100%', maxWidth: '750px', marginTop: '16px' }}>
+      {/* <div style={{ width: '100%', maxWidth: '750px', marginTop: '16px' }}>
         <Upload.Dragger
           customRequest={handlePdfUpload}
           beforeUpload={beforePdfUpload}
@@ -272,7 +272,7 @@ export default function Home() {
             单个文件不超过 50MB
           </p>
         </Upload.Dragger>
-      </div>
+      </div> */}
     </div>
   );
 }

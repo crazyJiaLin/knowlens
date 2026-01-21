@@ -27,8 +27,15 @@ interface PdfJobData {
   filePath: string;
 }
 
+interface PdfPageInfo {
+  text: string;
+  num: number;
+}
+
 interface PdfParseResult {
   text: string;
+  pages?: PdfPageInfo[];
+  total?: number;
   numpages?: number;
   info?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
@@ -70,38 +77,50 @@ export class PdfProcessor extends WorkerHost {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const result: PdfParseResult = await parser.getText();
 
-      // 按页分割文本
+      // 直接使用 result.pages 按页分割文本
       const pageTexts: string[] = [];
-      const lines = result.text.split('\n');
-      let currentPage = 1;
-      let currentPageText = '';
+      let pageCount = 0;
 
-      for (const line of lines) {
-        // pdf-parse 会在页面边界处包含特殊标记或换页符
-        // 这里简化处理：按固定行数分页（实际应根据 PDF 的页面信息）
-        if (line.includes('\f') || line.includes('\x0C')) {
-          // 换页符
-          if (currentPageText.trim()) {
-            pageTexts[currentPage - 1] = currentPageText.trim();
+      if (result.pages && result.pages.length > 0) {
+        // 优先使用 pages 数组（包含每页的独立文本）
+        this.logger.log(`PDF 解析结果: 共 ${result.pages.length} 页`);
+
+        for (const page of result.pages) {
+          const pageText = page.text?.trim() || '';
+          if (pageText) {
+            pageTexts.push(pageText);
           }
-          currentPage++;
-          currentPageText = '';
-        } else {
-          currentPageText += line + '\n';
         }
-      }
+        pageCount = pageTexts.length;
+      } else {
+        // 降级方案：如果 pages 不存在，使用完整文本按换页符分割
+        this.logger.warn('PDF 解析结果中没有 pages 数组，使用降级方案分割文本');
+        const lines = result.text.split('\n');
+        let currentPage = 1;
+        let currentPageText = '';
 
-      // 保存最后一页
-      if (currentPageText.trim()) {
-        pageTexts[currentPage - 1] = currentPageText.trim();
-      }
+        for (const line of lines) {
+          if (line.includes('\f') || line.includes('\x0C')) {
+            if (currentPageText.trim()) {
+              pageTexts[currentPage - 1] = currentPageText.trim();
+            }
+            currentPage++;
+            currentPageText = '';
+          } else {
+            currentPageText += line + '\n';
+          }
+        }
 
-      // 如果没有换页符，将整个文本作为单页
-      if (pageTexts.length === 0 && result.text.trim()) {
-        pageTexts[0] = result.text.trim();
-      }
+        if (currentPageText.trim()) {
+          pageTexts[currentPage - 1] = currentPageText.trim();
+        }
 
-      const pageCount = pageTexts.length;
+        if (pageTexts.length === 0 && result.text.trim()) {
+          pageTexts[0] = result.text.trim();
+        }
+
+        pageCount = pageTexts.length;
+      }
 
       // 打印提取结果，用于调试
       this.logger.log(`PDF 文本提取完成: 共 ${pageCount} 页`);
