@@ -2,7 +2,10 @@ export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   appName: process.env.APP_NAME || 'Knowlens',
-  baseUrl: process.env.BASE_URL, // 可选：完整的基础URL，如 http://localhost:3000
+  baseUrl:
+    process.env.BASE_URL && process.env.BASE_URL.trim() !== ''
+      ? process.env.BASE_URL.trim()
+      : undefined, // 可选：完整的基础URL，如 http://localhost:3000（空字符串视为未配置）
 
   // MongoDB
   mongodb: {

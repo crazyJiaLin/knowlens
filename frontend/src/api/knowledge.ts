@@ -72,8 +72,11 @@ export const getKnowledgePoints = async (documentId: string): Promise<KnowledgeP
     params: { documentId },
   });
 
+  // response 已被 interceptor 解包，实际类型是 KnowledgePointsResponse
+  const data = (response as unknown as KnowledgePointsResponse).data;
+
   // 转换 _id 为 id
-  const transformedData = transformMongooseDoc(response.data);
+  const transformedData = transformMongooseDoc(data);
   return transformedData;
 };
 
@@ -86,10 +89,10 @@ export const getKnowledgePointById = async (id: string): Promise<KnowledgePoint>
   );
   // 如果响应已经是 KnowledgePoint 类型（被 interceptor 解包了），直接返回
   if ('topic' in (response as object)) {
-    return response as KnowledgePoint;
+    return response as unknown as KnowledgePoint;
   }
   // 否则从 data 字段中提取
-  return (response as { data: KnowledgePoint }).data;
+  return (response as unknown as { data: KnowledgePoint }).data;
 };
 
 /**
@@ -105,5 +108,6 @@ export const regenerateKnowledgePoints = async (
   }>('/knowledge-points/regenerate', {
     documentId,
   });
-  return response.data;
+  // response 已被 interceptor 解包
+  return response as unknown as { success: boolean; message: string; data: { jobId: string } };
 };

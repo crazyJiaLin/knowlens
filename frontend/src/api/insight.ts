@@ -189,10 +189,10 @@ export const generateInsight = async (kpId: string, forceRegenerate = false): Pr
 
   // 处理双重包装的情况
   if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-    return (response as { data: Insight }).data;
+    return (response as unknown as { data: Insight }).data;
   }
 
-  return response as Insight;
+  return response as unknown as Insight;
 };
 
 /**
@@ -208,10 +208,10 @@ export const getInsight = async (kpId: string): Promise<Insight | null> => {
     const response = await request.get<{ success: boolean; data: Insight }>(`/insight/${kpId}`);
 
     if (response && typeof response === 'object' && 'data' in response && 'success' in response) {
-      return (response as { data: Insight }).data;
+      return (response as unknown as { data: Insight }).data;
     }
 
-    return response as Insight;
+    return response as unknown as Insight;
   } catch (error) {
     // 如果洞察不存在，返回 null
     if (error instanceof Error && error.message.includes('404')) {

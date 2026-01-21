@@ -70,8 +70,18 @@ export class PdfService {
       throw new BadRequestException(`PDF 保存失败: ${errorMessage}`);
     }
 
-    // 生成访问URL（不包含中文，避免编码问题）
-    const originalUrl = `${this.baseUrl}/uploadFile/${filename}`;
+    // 生成访问URL
+    // 生产环境使用相对路径（通过 Nginx 代理，支持多域名访问）
+    // 本地开发使用完整 URL（直连后端）
+    let originalUrl: string;
+    if (this.baseUrl) {
+      // 完整 URL（本地开发）
+      // baseUrl 已包含末尾斜杠，直接拼接避免双斜杠
+      originalUrl = `${this.baseUrl}uploadFile/${filename}`;
+    } else {
+      // 相对路径（生产环境）
+      originalUrl = `/uploadFile/${filename}`;
+    }
 
     // 标题使用原始文件名（保留中文）
     const titleFromName = originalname
@@ -133,9 +143,13 @@ export class PdfService {
       return baseUrlFromEnv;
     }
 
-    const port = this.configService.get<number>('port') || 3000;
-    const host = process.env.HOST || 'localhost';
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    return `${protocol}://${host}:${port}`;
+    // 默认值：生产环境使用 / （相对路径），本地开发使用完整 URL 带末尾斜杠
+    if (process.env.NODE_ENV === 'production') {
+      return '/'; // 相对路径根目录
+    } else {
+      const port = this.configService.get<number>('port') || 3000;
+      const host = process.env.HOST || 'localhost';
+      return `http://${host}:${port}/`; // 末尾带斜杠
+    }
   }
 }

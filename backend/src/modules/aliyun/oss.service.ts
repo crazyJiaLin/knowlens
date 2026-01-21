@@ -21,15 +21,18 @@ export class OssService {
     this.localUploadDir = path.join(process.cwd(), 'uploadFile');
 
     // 获取基础URL（用于本地文件访问）
-    const port = this.configService.get<number>('port') || 3000;
     const baseUrlFromEnv = this.configService.get<string>('baseUrl');
     if (baseUrlFromEnv) {
       this.baseUrl = baseUrlFromEnv;
     } else {
-      // 默认使用 localhost
-      const host = process.env.HOST || 'localhost';
-      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-      this.baseUrl = `${protocol}://${host}:${port}`;
+      // 默认使用相对路径（生产环境）或 localhost（开发环境）
+      if (process.env.NODE_ENV === 'production') {
+        this.baseUrl = '/'; // 相对路径根目录
+      } else {
+        const port = this.configService.get<number>('port') || 3000;
+        const host = process.env.HOST || 'localhost';
+        this.baseUrl = `http://${host}:${port}/`; // 末尾带斜杠
+      }
     }
 
     const accessKeyId = this.configService.get<string>(
@@ -141,9 +144,17 @@ export class OssService {
         await pipelineAsync(file, writeStream);
       }
 
-      // 返回完整URL，包含host和port
-      // 格式: http://localhost:3000/uploadFile/filename
-      const url = `${this.baseUrl}/uploadFile/${filename}`;
+      // 生成访问URL
+      // 生产环境使用相对路径（通过 Nginx 代理，支持多域名访问）
+      // 本地开发使用完整 URL（直连后端）
+      let url: string;
+      if (this.baseUrl && this.baseUrl.startsWith('http')) {
+        // 完整 URL（本地开发）
+        url = `${this.baseUrl}uploadFile/${filename}`;
+      } else {
+        // 相对路径（生产环境）
+        url = `/uploadFile/${filename}`;
+      }
       this.logger.log(`文件保存到本地成功: ${filePath}，访问URL: ${url}`);
       return url;
     } catch (error) {
@@ -220,8 +231,13 @@ export class OssService {
    */
   getSignedUrl(filename: string, expires: number = 3600): Promise<string> {
     if (this.useLocalStorage) {
-      // 本地存储直接返回完整URL
-      const url = `${this.baseUrl}/uploadFile/${filename}`;
+      // 生成访问URL
+      // 生产环境使用相对路径，本地开发使用完整 URL
+      // baseUrl 已包含末尾斜杠，直接拼接避免双斜杠
+      const url =
+        this.baseUrl && this.baseUrl.startsWith('http')
+          ? `${this.baseUrl}uploadFile/${filename}`
+          : `/uploadFile/${filename}`;
       return Promise.resolve(url);
     }
 
