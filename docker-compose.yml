@@ -11,6 +11,12 @@ services:
       - mongodb-data:/data/db
     networks:
       - knowlens-network
+    command: --quiet --logpath /dev/null
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Redis 服务
   redis:
@@ -22,9 +28,14 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --loglevel warning
     networks:
       - knowlens-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 后端服务
   backend:
@@ -52,6 +63,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 前端服务
   frontend:
@@ -72,6 +88,11 @@ services:
     networks:
       - knowlens-network
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   mongodb-data:

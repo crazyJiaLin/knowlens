@@ -97,6 +97,7 @@ export default function Header() {
               cursor: 'pointer',
               userSelect: 'none',
               transition: 'opacity 0.3s',
+              whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.opacity = '0.7';
@@ -105,6 +106,17 @@ export default function Header() {
               e.currentTarget.style.opacity = '1';
             }}
           >
+            <img
+              src="/logo-active-opacity.png"
+              alt="KnowLens"
+              style={{
+                width: 'auto',
+                height: '18px',
+                marginRight: '10px',
+                position: 'relative',
+                top: '2px',
+              }}
+            />
             KnowLens
           </span>
         )}

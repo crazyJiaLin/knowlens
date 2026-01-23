@@ -150,6 +150,17 @@ export default function Home() {
             color: 'var(--color-text-primary)',
           }}
         >
+          <img
+            src="/logo.png"
+            alt="KnowLens"
+            style={{
+              width: 'auto',
+              height: '50px',
+              marginRight: '10px',
+              position: 'relative',
+              top: '10px',
+            }}
+          />
           KnowLens
         </h1>
         <p
