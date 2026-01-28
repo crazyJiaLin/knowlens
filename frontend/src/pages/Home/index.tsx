@@ -150,7 +150,7 @@ export default function Home() {
             color: 'var(--color-text-primary)',
           }}
         >
-          <img
+          {/* <img
             src="/logo.png"
             alt="KnowLens"
             style={{
@@ -160,7 +160,7 @@ export default function Home() {
               position: 'relative',
               top: '10px',
             }}
-          />
+          /> */}
           KnowLens
         </h1>
         <p

@@ -106,7 +106,7 @@ export default function Header() {
               e.currentTarget.style.opacity = '1';
             }}
           >
-            <img
+            {/* <img
               src="/logo-active-opacity.png"
               alt="KnowLens"
               style={{
@@ -116,7 +116,7 @@ export default function Header() {
                 position: 'relative',
                 top: '2px',
               }}
-            />
+            /> */}
             KnowLens
           </span>
         )}
