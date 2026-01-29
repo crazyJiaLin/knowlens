@@ -84,8 +84,6 @@
 /* 原文卡片 */
 .transcriptCard {
   min-height: 400px;
-  max-height: 600px;
-  overflow: auto;
 }
 
 /* 加载中容器 */
@@ -97,6 +95,8 @@
 /* 段落容器 */
 .segmentsContainer {
   /* 容器本身不需要特殊样式 */
+  max-height: 830px;
+  overflow: auto;
 }
 
 /* 段落项 */

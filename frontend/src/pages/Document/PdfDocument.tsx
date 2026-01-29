@@ -15,7 +15,7 @@ const { Title, Text } = Typography;
 
 export default function PdfDocument() {
   const { id } = useParams<{ id: string }>();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const pdfViewerRef = useRef<HTMLDivElement>(null);
   const [pageWidth, setPageWidth] = useState<number | undefined>(undefined);
   const [pageNumber, setPageNumber] = useState(1);
   const [numPages, setNumPages] = useState(0);
@@ -38,10 +38,10 @@ export default function PdfDocument() {
   }, [error]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!pdfViewerRef.current) return;
 
-    // 初始化宽度
-    const initialWidth = Math.min(containerRef.current.clientWidth - 24, 900);
+    // 初始化宽度（减去 padding: 12px * 2 = 24px）
+    const initialWidth = pdfViewerRef.current.clientWidth - 24;
     setPageWidth(initialWidth);
 
     // 使用防抖优化 ResizeObserver，避免频繁更新
@@ -51,7 +51,8 @@ export default function PdfDocument() {
       if (entry) {
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-          const newWidth = Math.min(entry.contentRect.width - 24, 900);
+          // 减去 pdfViewer 的 padding (12px * 2)
+          const newWidth = entry.contentRect.width - 24;
           // 只有宽度变化超过 10px 才更新，避免小幅抖动
           setPageWidth((prev) => {
             if (prev === undefined || Math.abs(newWidth - prev) > 10) {
@@ -62,7 +63,7 @@ export default function PdfDocument() {
         }, 150); // 150ms 防抖
       }
     });
-    observer.observe(containerRef.current);
+    observer.observe(pdfViewerRef.current);
     return () => {
       observer.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
@@ -201,7 +202,7 @@ export default function PdfDocument() {
       </div>
 
       <div className={styles.mainContent}>
-        <div className={styles.leftContent} ref={containerRef}>
+        <div className={styles.leftContent}>
           <Card title="PDF 原文" className={styles.pdfCard}>
             <div className={styles.pdfControls}>
               <div>
@@ -237,7 +238,12 @@ export default function PdfDocument() {
               </div>
             </div>
 
-            <div className={styles.pdfViewer}>
+            <div
+              className={`${styles.pdfViewer} ${
+                anchorInfo?.page === pageNumber ? styles.pdfViewerHighlight : ''
+              }`}
+              ref={pdfViewerRef}
+            >
               {!showPdf ? (
                 <Skeleton active paragraph={{ rows: 18 }} />
               ) : (
@@ -248,11 +254,7 @@ export default function PdfDocument() {
                   loading={<Skeleton active paragraph={{ rows: 18 }} />}
                   options={pdfOptions}
                 >
-                  <div
-                    className={`${styles.pdfPageWrapper} ${
-                      anchorInfo?.page === pageNumber ? styles.pdfPageHighlight : ''
-                    }`}
-                  >
+                  <div className={styles.pdfPageWrapper}>
                     <Page pageNumber={pageNumber} width={pageWidth} />
                   </div>
                 </PdfViewer>
@@ -267,14 +269,16 @@ export default function PdfDocument() {
           </Card>
         </div>
 
-        <KnowledgeCard
-          documentId={document.id}
-          documentStatus={status?.status}
-          segments={segments}
-          progress={progress}
-          onJumpToPdf={jumpToPdfAnchor}
-          highlightedKnowledgePointId={null}
-        />
+        <div className={styles.rightContent}>
+          <KnowledgeCard
+            documentId={document.id}
+            documentStatus={status?.status}
+            segments={segments}
+            progress={progress}
+            onJumpToPdf={jumpToPdfAnchor}
+            highlightedKnowledgePointId={null}
+          />
+        </div>
       </div>
     </div>
   );

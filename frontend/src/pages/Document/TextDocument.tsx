@@ -272,7 +272,6 @@ export default function TextDocument() {
               <div
                 ref={segmentsContainerRef}
                 className={styles.segmentsContainer}
-                style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}
               >
                 {paragraphs.map((paragraphSegments, paragraphIndex) => {
                   // 检查段落中是否有高亮的segment
